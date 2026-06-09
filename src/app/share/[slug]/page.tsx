@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation'
 import { ensureRecommendationTables, getMediaGuideSql } from '@/lib/media-guide-db'
 import '../../runway.css'
 
+export const dynamic = 'force-dynamic'
+
 type SharePageProps = {
   params: Promise<{ slug: string }>
 }
