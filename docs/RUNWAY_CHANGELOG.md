@@ -5,6 +5,9 @@
 - Update this changelog in the same commit as the version bump.
 - Use patch versions for UI polish and small fixes, minor versions for new user-facing features, and major versions only for breaking changes or large data model shifts.
 
+## 0.1.2 - Vercel Build Config
+- Added an explicit Vercel config so the standalone Runway project installs with `npm ci` and builds with `npm run build`.
+
 ## 0.1.1 - Runtime Share Pages
 - Forced shared recommendation pages to render at request time so Vercel builds do not connect to Neon during `next build`.
 
