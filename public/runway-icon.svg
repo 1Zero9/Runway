@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Runway icon">
+  <defs>
+    <linearGradient id="bg" x1="70" y1="36" x2="442" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="0.52" stop-color="#f1f2f3"/>
+      <stop offset="0.53" stop-color="#d71920"/>
+      <stop offset="0.64" stop-color="#a40f15"/>
+      <stop offset="0.65" stop-color="#12151b"/>
+      <stop offset="1" stop-color="#050608"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="144" y1="128" x2="368" y2="344" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111318"/>
+      <stop offset="1" stop-color="#252b34"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M70 392h372v36H70z" fill="#d71920"/>
+  <path d="M102 394h38v34h-38zm78 0h38v34h-38zm78 0h38v34h-38zm78 0h38v34h-38z" fill="#fff"/>
+  <rect x="120" y="132" width="272" height="182" rx="34" fill="url(#screen)" stroke="#ffffff" stroke-width="18"/>
+  <path d="M208 178v90l82-45-82-45z" fill="#ffffff"/>
+  <path d="M186 348h140" stroke="#111318" stroke-width="24" stroke-linecap="round"/>
+  <path d="M256 315v32" stroke="#111318" stroke-width="24" stroke-linecap="round"/>
+  <circle cx="358" cy="156" r="18" fill="#d71920"/>
+  <path d="M96 88h320" stroke="#111318" stroke-width="22" stroke-linecap="round"/>
+  <path d="M96 88h86" stroke="#d71920" stroke-width="22" stroke-linecap="round"/>
+</svg>
