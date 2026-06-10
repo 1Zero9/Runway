@@ -10,7 +10,6 @@ import {
   Download,
   Eye,
   Filter,
-  Flag,
   Heart,
   ListPlus,
   MonitorPlay,
@@ -21,18 +20,16 @@ import {
   Settings,
   Sparkles,
   Star,
-  Sun,
   Trash2,
   Tv,
   ThumbsDown,
-  Users,
 } from 'lucide-react'
+import Image from 'next/image'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import './runway.css'
 
-type Tab = 'today' | 'streaming' | 'cinema' | 'watching' | 'lists' | 'settings'
-type ThemeMode = 'dark' | 'light' | 'trackside'
+type Tab = 'tonight' | 'runway' | 'library' | 'settings'
 type ListingTimeMode = 'from_now' | 'full_day'
 type DiscoveryMediaType = 'all' | 'movie' | 'tv'
 type DiscoveryStatusFilter = 'all' | 'unselected' | RecommendationItem['status']
@@ -126,6 +123,7 @@ type RecommendationItem = {
   posterPath: string | null
   overview: string
   note: string
+  dominantColour: string | null
 }
 
 const defaultProviders: Provider[] = [
@@ -200,13 +198,12 @@ const starterSkyChannelMatches = [
 const dadChannelName = 'More4'
 
 function App() {
-  const [tab, setTab] = useState<Tab>('today')
+  const [tab, setTab] = useState<Tab>('tonight')
   const [selectedDate, setSelectedDate] = useState(() => formatIrelandDate(new Date()))
   const [tvItems, setTvItems] = useState<TvMazeEpisode[]>([])
   const [tvChannels, setTvChannels] = useState<EpgChannel[]>([])
   const [tvLoading, setTvLoading] = useState(false)
   const [tvError, setTvError] = useState('')
-  const [themeMode, setThemeMode] = useStoredState<ThemeMode>('mediaguide.themeMode', 'dark')
   const [listingTimeMode, setListingTimeMode] = useStoredState<ListingTimeMode>(
     'mediaguide.listingTimeMode',
     'from_now',
@@ -251,12 +248,9 @@ function App() {
   const [toast, setToast] = useState('')
   const refreshPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const enabledProviders = providers.filter((provider) => provider.enabled)
-  const activeWatchingCount = watching.filter((item) => !['completed', 'dropped'].includes(getWatchStatus(item))).length
-  const dueSoon = watching
-    .filter((item) => !['completed', 'dropped'].includes(getWatchStatus(item)))
-    .sort((a, b) => a.nextEpisode.localeCompare(b.nextEpisode))
-    .slice(0, 3)
+  const inProgressShows = watching
+    .filter((i) => getWatchStatus(i) === 'watching')
+    .sort((a, b) => (b.lastWatchedAt ?? '').localeCompare(a.lastWatchedAt ?? ''))
   const discoveryStatusByKey = useMemo(
     () =>
       recommendationItems.reduce((map, item) => {
@@ -267,6 +261,16 @@ function App() {
         map.set(key, statuses)
         return map
       }, new Map<string, Set<RecommendationItem['status']>>()),
+    [recommendationItems],
+  )
+  const dominantColourByKey = useMemo(
+    () =>
+      recommendationItems.reduce((map, item) => {
+        const key = getRecommendationItemKey(item)
+        if (!key || !item.dominantColour) return map
+        if (!map.has(key)) map.set(key, item.dominantColour)
+        return map
+      }, new Map<string, string>()),
     [recommendationItems],
   )
   const hiddenGenres = useMemo(() => new Set(hiddenGenreIds), [hiddenGenreIds])
@@ -869,160 +873,26 @@ function App() {
   }
 
   return (
-    <main className={themeClassName(themeMode)} suppressHydrationWarning>
+    <main className="app-shell">
       {toast && <div className="toast">{toast}</div>}
       <header className="topbar">
-        <div>
-          <p className="eyebrow">Ireland only - {new Intl.DateTimeFormat('en-IE', { weekday: 'long' }).format(new Date())}</p>
-          <h1>Runway</h1>
-          <p className="hero-copy">Tonight's TV, streaming picks, cinema releases, and lists for people you recommend to.</p>
-          <span className="version-badge">v{appVersion}</span>
-        </div>
+        <h1 className="topbar-wordmark">Runway</h1>
+        <nav className="tabs" aria-label="Guide views">
+          <TabButton active={tab === 'tonight'} icon={<Tv size={18} />} label="Tonight" onClick={() => setTab('tonight')} />
+          <TabButton active={tab === 'runway'} icon={<Sparkles size={18} />} label="Runway" onClick={() => setTab('runway')} />
+          <TabButton active={tab === 'library'} icon={<Star size={18} />} label="Library" onClick={() => setTab('library')} />
+        </nav>
         <button className="icon-button" type="button" aria-label="Settings" onClick={() => setTab('settings')}>
           <Settings size={20} />
         </button>
       </header>
 
-      <section className="home-panel">
-        {/* Continue Watching */}
-        {watching.filter((i) => getWatchStatus(i) === 'watching').length > 0 && (
-          <div className="home-section">
-            <p className="home-section-label">Continue watching</p>
-            <div className="continue-strip">
-              {watching
-                .filter((i) => getWatchStatus(i) === 'watching')
-                .sort((a, b) => (b.lastWatchedAt ?? '').localeCompare(a.lastWatchedAt ?? ''))
-                .slice(0, 5)
-                .map((item) => (
-                  <button key={item.id} className="continue-card" type="button" onClick={() => setTab('watching')}>
-                    <span className="continue-title">{item.title}</span>
-                    <span className="continue-meta">
-                      {item.type !== 'film' && item.type !== 'sport'
-                        ? `S${String(item.currentSeason ?? 1).padStart(2, '0')} E${String(item.currentEpisode ?? 0).padStart(2, '0')}`
-                        : item.service}
-                    </span>
-                    {item.lastWatchedAt && (
-                      <span className="continue-date">Last watched {formatShortDate(item.lastWatchedAt)}</span>
-                    )}
-                  </button>
-                ))}
-            </div>
-          </div>
-        )}
 
-        {/* Up next / coming up */}
-        {dueSoon.length > 0 && (
-          <div className="home-section">
-            <p className="home-section-label">Up next</p>
-            <div className="next-strip">
-              {dueSoon.map((item) => (
-                <button key={item.id} type="button" onClick={() => setTab('watching')}>
-                  {item.title}
-                  <small>{formatShortDate(item.nextEpisode)}</small>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Suggestions from TMDb */}
-        {suggestions.length > 0 && (
-          <div className="home-section">
-            <p className="home-section-label">
-              <Sparkles size={14} />
-              Suggested for you
-            </p>
-            <div className="suggestion-strip">
-              {suggestions.slice(0, 6).map((item) => (
-                <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
-                  {item.poster_path ? (
-                    <img src={`https://image.tmdb.org/t/p/w185${item.poster_path}`} alt="" />
-                  ) : (
-                    <div className="poster-fallback">
-                      <MonitorPlay size={18} />
-                    </div>
-                  )}
-                  <div className="suggestion-info">
-                    <strong>{item.title ?? item.name}</strong>
-                    <span>{item.provider}</span>
-                  </div>
-                  <button
-                    type="button"
-                    className="icon-button quiet"
-                    aria-label={`Track ${item.title ?? item.name}`}
-                    onClick={() => persistWatchingItem(mediaToWatchingItem(item))}
-                  >
-                    <Plus size={16} />
-                  </button>
-                </article>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Stats row */}
-        <div className="summary-band">
-          <div className="signal">
-            <Tv size={20} />
-            <div>
-              <strong>{tvLoading ? '…' : tvItems.length}</strong>
-              <span>on TV</span>
-            </div>
-          </div>
-          <div className="signal">
-            <MonitorPlay size={20} />
-            <div>
-              <strong>{enabledProviders.length}</strong>
-              <span>services</span>
-            </div>
-          </div>
-          <div className="signal">
-            <Star size={20} />
-            <div>
-              <strong>{activeWatchingCount}</strong>
-              <span>tracked</span>
-            </div>
-          </div>
-          <div className="signal">
-            <Users size={20} />
-            <div>
-              <strong>{recommendationLists.length}</strong>
-              <span>lists</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <nav className="tabs" aria-label="Guide views">
-        <TabButton active={tab === 'today'} icon={<Tv size={18} />} label="Today" onClick={() => setTab('today')} />
-        <TabButton
-          active={tab === 'streaming'}
-          icon={<Sparkles size={18} />}
-          label="Streaming"
-          onClick={() => setTab('streaming')}
-        />
-        <TabButton
-          active={tab === 'cinema'}
-          icon={<Clapperboard size={18} />}
-          label="Cinema"
-          onClick={() => setTab('cinema')}
-        />
-        <TabButton
-          active={tab === 'watching'}
-          icon={<Star size={18} />}
-          label="My List"
-          onClick={() => setTab('watching')}
-        />
-        <TabButton
-          active={tab === 'lists'}
-          icon={<ListPlus size={18} />}
-          label="Lists"
-          onClick={() => setTab('lists')}
-        />
-      </nav>
-
-      {tab === 'today' && (
+      {tab === 'tonight' && (
         <section className="view">
+          {inProgressShows.length > 0 && (
+            <UpNextRail items={inProgressShows} onMarkWatched={markWatched} />
+          )}
           <div className="tool-row">
             <label className="field compact">
               <CalendarDays size={17} />
@@ -1212,8 +1082,50 @@ function App() {
         </section>
       )}
 
-      {tab === 'streaming' && (
+      {tab === 'runway' && (
         <section className="view">
+          {suggestions.length > 0 && (
+            <div className="home-section">
+              <p className="home-section-label">
+                <Sparkles size={14} />
+                Suggested for you
+              </p>
+              <div className="suggestion-strip">
+                {suggestions.slice(0, 6).map((item) => (
+                  <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
+                    {item.poster_path ? (
+                      <Image
+                        src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
+                        alt=""
+                        width={44}
+                        height={64}
+                        style={{ width: '44px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block' }}
+                        placeholder="blur"
+                        blurDataURL={makePosterBlur(null)}
+                      />
+                    ) : (
+                      <div className="poster-fallback">
+                        <MonitorPlay size={18} />
+                      </div>
+                    )}
+                    <div className="suggestion-info">
+                      <strong>{item.title ?? item.name}</strong>
+                      <span>{item.provider}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-button quiet"
+                      aria-label={`Track ${item.title ?? item.name}`}
+                      onClick={() => persistWatchingItem(mediaToWatchingItem(item))}
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="section-heading">
             <div>
               <p className="eyebrow">Netflix, Prime, Apple TV+, Paramount+, Sky / NOW</p>
@@ -1263,6 +1175,7 @@ function App() {
             ))}
           </div>
           <MediaGrid
+            dominantColourByKey={dominantColourByKey}
             genreMap={genreMap}
             items={visibleStreamingItems}
             onAction={addRecommendation}
@@ -1277,32 +1190,18 @@ function App() {
               detail="Turn a provider back on, restore hidden categories, or tap refresh."
             />
           )}
-        </section>
-      )}
 
-      {tab === 'cinema' && (
-        <section className="view">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Region IE</p>
-              <h2>Movie Releases</h2>
+          <div className="view-section">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Region IE</p>
+                <h2>Movie Releases</h2>
+              </div>
+              <Clapperboard size={19} />
             </div>
-            <Clapperboard size={19} />
-          </div>
-          <DiscoveryFilters
-            discoveryGenreId={discoveryGenreId}
-            discoveryQuery={discoveryQuery}
-            discoveryStatusFilter={discoveryStatusFilter}
-            genreOptions={genreOptions}
-            onGenreChange={setDiscoveryGenreId}
-            onPosterScaleChange={setPosterScale}
-            onQueryChange={setDiscoveryQuery}
-            onStatusFilterChange={setDiscoveryStatusFilter}
-            posterScale={posterScale}
-          />
-          {cinema.length ? (
-            <>
+            {cinema.length ? (
               <MediaGrid
+                dominantColourByKey={dominantColourByKey}
                 genreMap={genreMap}
                 items={visibleCinemaItems}
                 onAction={addRecommendation}
@@ -1311,15 +1210,18 @@ function App() {
                 statusByKey={discoveryStatusByKey}
                 trackedTitleSet={trackedTitleSet}
               />
-            </>
-          ) : (
-            <EmptyState title={tmdbError || 'TMDb releases will load once TMDB_API_KEY is available on the server'} />
-          )}
+            ) : (
+              <EmptyState title={tmdbError || 'TMDb releases will load once TMDB_API_KEY is available on the server'} />
+            )}
+          </div>
         </section>
       )}
 
-      {tab === 'watching' && (
+      {tab === 'library' && (
         <section className="view">
+          {inProgressShows.length > 0 && (
+            <UpNextRail items={inProgressShows} onMarkWatched={markWatched} />
+          )}
           <form className="add-form" onSubmit={addWatching}>
             <input name="title" placeholder="Programme or film" required />
             <div className="form-grid">
@@ -1490,12 +1392,16 @@ function App() {
             ))}
             {!watchGroups.length && <EmptyState title="My List is empty" detail="Track shows, films, or sports from the guide." />}
           </div>
-        </section>
-      )}
 
-      {tab === 'lists' && (
-        <section className="view">
-          <form className="add-form" onSubmit={createRecommendationList}>
+          <div className="view-section">
+            <div className="section-heading compact-heading">
+              <div>
+                <p className="eyebrow">Recommendation lists</p>
+                <h2>Shared Lists</h2>
+              </div>
+              <ListPlus size={19} />
+            </div>
+            <form className="add-form" onSubmit={createRecommendationList}>
             <input name="name" placeholder="List name, e.g. Films for Dad" required />
             <button className="primary-button" type="submit">
               <ListPlus size={18} />
@@ -1603,6 +1509,7 @@ function App() {
               <EmptyState title="Create a list for someone" detail="Then add titles from Streaming or Cinema and share the link." />
             )}
           </div>
+          </div>
         </section>
       )}
 
@@ -1611,39 +1518,7 @@ function App() {
           <div className="settings-panel">
             <div className="settings-roadmap">
               <p className="eyebrow">Display</p>
-              <h2>Theme and listings</h2>
-              <div className="settings-controls">
-                <div>
-                  <strong>Theme</strong>
-                  <span>Choose the current performance look, daylight mode, or the Trackside motorsport theme.</span>
-                </div>
-                <div className="segmented-actions">
-                  <button
-                    className={themeMode === 'dark' ? 'active' : ''}
-                    type="button"
-                    onClick={() => setThemeMode('dark')}
-                  >
-                    <Settings size={14} />
-                    Dark
-                  </button>
-                  <button
-                    className={themeMode === 'light' ? 'active' : ''}
-                    type="button"
-                    onClick={() => setThemeMode('light')}
-                  >
-                    <Sun size={14} />
-                    Light
-                  </button>
-                  <button
-                    className={themeMode === 'trackside' ? 'active' : ''}
-                    type="button"
-                    onClick={() => setThemeMode('trackside')}
-                  >
-                    <Flag size={14} />
-                    Trackside
-                  </button>
-                </div>
-              </div>
+              <h2>Listings</h2>
               <div className="settings-controls">
                 <div>
                   <strong>Today listings</strong>
@@ -1767,6 +1642,33 @@ function App() {
   )
 }
 
+function UpNextRail({
+  items,
+  onMarkWatched,
+}: {
+  items: WatchingItem[]
+  onMarkWatched: (item: WatchingItem) => void
+}) {
+  return (
+    <div className="upnext-rail">
+      {items.slice(0, 8).map((item) => (
+        <div key={item.id} className="upnext-card">
+          <span className="upnext-episode">
+            {item.type !== 'film' && item.type !== 'sport'
+              ? `S${String(item.currentSeason ?? 1).padStart(2, '0')} E${String(item.currentEpisode ?? 0).padStart(2, '0')}`
+              : item.service}
+          </span>
+          <span className="upnext-title">{item.title}</span>
+          <button type="button" className="upnext-mark" onClick={() => onMarkWatched(item)}>
+            <Check size={11} />
+            {item.type === 'film' ? 'Watched' : 'Ep watched'}
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function TabButton({
   active,
   icon,
@@ -1787,6 +1689,7 @@ function TabButton({
 }
 
 function MediaGrid({
+  dominantColourByKey,
   genreMap,
   items,
   onAction,
@@ -1795,6 +1698,7 @@ function MediaGrid({
   statusByKey,
   trackedTitleSet,
 }: {
+  dominantColourByKey: Map<string, string>
   genreMap: Record<number, string>
   items: TmdbItem[]
   onAction: (item: TmdbItem, status: RecommendationItem['status']) => void
@@ -1808,20 +1712,36 @@ function MediaGrid({
   return (
     <div className="media-grid" style={gridStyle}>
       {items.map((item) => {
-        const itemStatuses = statusByKey.get(getTmdbItemKey(item)) ?? new Set<RecommendationItem['status']>()
+        const key = getTmdbItemKey(item)
+        const itemStatuses = statusByKey.get(key) ?? new Set<RecommendationItem['status']>()
         const isTracked = trackedTitleSet.has(normalizeTitle(item.title ?? item.name ?? ''))
         const hasStatus = itemStatuses.size > 0 || isTracked
+        const dominantColour = dominantColourByKey.get(key)
+        const cardStyle = dominantColour
+          ? { borderColor: `${dominantColour}40` } as CSSProperties
+          : undefined
 
         return (
           <article
             className={hasStatus ? 'media-card selected' : 'media-card'}
             key={`${item.media_type ?? 'movie'}-${item.provider}-${item.id}`}
+            style={cardStyle}
           >
             {item.poster_path ? (
-              <img src={`https://image.tmdb.org/t/p/w342${item.poster_path}`} alt="" />
+              <Image
+                src={`https://image.tmdb.org/t/p/w342${item.poster_path}`}
+                alt=""
+                width={342}
+                height={513}
+                sizes="(max-width: 720px) 45vw, (max-width: 1180px) 25vw, 220px"
+                style={{ width: '100%', height: 'auto', display: 'block' }}
+                placeholder="blur"
+                blurDataURL={makePosterBlur(dominantColour)}
+              />
             ) : (
               <div className="poster-fallback large">
                 <MonitorPlay size={28} />
+                <span className="poster-fallback-title">{item.title ?? item.name}</span>
               </div>
             )}
             <div>
@@ -2122,12 +2042,6 @@ function getTmdbItemKey(item: TmdbItem) {
   return `${item.media_type ?? (item.name ? 'tv' : 'movie')}-${item.id}`
 }
 
-function themeClassName(theme: ThemeMode) {
-  if (theme === 'light') return 'app-shell light-mode'
-  if (theme === 'trackside') return 'app-shell trackside-mode'
-  return 'app-shell'
-}
-
 function getRecommendationItemKey(item: RecommendationItem) {
   if (!item.tmdbId) return ''
   return `${item.mediaType || 'movie'}-${item.tmdbId}`
@@ -2254,6 +2168,12 @@ function formatShortDate(value: string) {
     month: 'short',
     timeZone: 'Europe/Dublin',
   }).format(new Date(value))
+}
+
+function makePosterBlur(colour: string | null | undefined): string {
+  const bg = colour ?? '#14171C'
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="15"><rect width="10" height="15" fill="${bg}"/></svg>`
+  return `data:image/svg+xml;base64,${btoa(svg)}`
 }
 
 export default App
