@@ -5,6 +5,9 @@
 - Update this changelog in the same commit as the version bump.
 - Use patch versions for UI polish and small fixes, minor versions for new user-facing features, and major versions only for breaking changes or large data model shifts.
 
+## 0.1.3 - Vercel Install Compatibility
+- Switched Vercel installs from `npm ci` to `npm install` to avoid optional native dependency lockfile mismatches across local macOS and Vercel Linux builds.
+
 ## 0.1.2 - Vercel Build Config
 - Added an explicit Vercel config so the standalone Runway project installs with `npm ci` and builds with `npm run build`.
 
