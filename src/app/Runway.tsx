@@ -133,14 +133,14 @@ const defaultProviders: Provider[] = [
   { id: 0, label: 'Paramount+', match: ['Paramount Plus', 'Paramount+'], enabled: true },
 ]
 
-const appVersion = '0.1.3'
+const appVersion = '0.1.4'
 const watchStatusOrder: WatchStatus[] = ['watching', 'waiting', 'planned', 'completed', 'dropped']
 
 const fallbackStreaming: TmdbItem[] = [
   {
     id: 9001,
-    title: 'TMDb server key required',
-    overview: 'Streaming rows load from the protected server API once TMDB_API_KEY is configured.',
+    title: 'Streaming source unavailable',
+    overview: 'Runway could not load TMDb streaming data. Check the message above and refresh.',
     poster_path: null,
     vote_average: 0,
     provider: 'Ireland streaming',
@@ -215,6 +215,7 @@ function App() {
   const [streaming, setStreaming] = useState<TmdbItem[]>(fallbackStreaming)
   const [cinema, setCinema] = useState<TmdbItem[]>([])
   const [tmdbLoading, setTmdbLoading] = useState(false)
+  const [tmdbError, setTmdbError] = useState('')
   const [tmdbRefreshedAt, setTmdbRefreshedAt] = useState('')
   const [tmdbRefreshNonce, setTmdbRefreshNonce] = useState(0)
   const [refreshPulse, setRefreshPulse] = useState(false)
@@ -445,7 +446,10 @@ function App() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ providers }),
         })
-        if (!response.ok) throw new Error('Could not load TMDb data.')
+        if (!response.ok) {
+          const data = (await response.json().catch(() => ({}))) as { error?: string }
+          throw new Error(data.error ?? 'Could not load TMDb data.')
+        }
         const data = (await response.json()) as {
           genreMap: Record<number, string>
           providers: Provider[]
@@ -456,6 +460,7 @@ function App() {
 
         if (!ignore) {
           setTmdbRefreshedAt(data.refreshedAt)
+          setTmdbError('')
           setGenreMap(data.genreMap)
           if (providersChanged(providers, data.providers)) {
             setProviders(data.providers)
@@ -464,8 +469,9 @@ function App() {
           setCinema(data.cinema)
           if (tmdbRefreshNonce > 0) setToast('Sources refreshed')
         }
-      } catch {
+      } catch (error) {
         if (!ignore) {
+          setTmdbError(error instanceof Error ? error.message : 'Could not load TMDb data.')
           setStreaming(fallbackStreaming)
           setCinema([])
         }
@@ -1102,6 +1108,7 @@ function App() {
               <p className="eyebrow">Netflix, Prime, Apple TV+, Paramount+, Sky / NOW</p>
               <h2>Streaming in Ireland</h2>
               {tmdbRefreshedAt && <span className="refresh-note">Updated {formatTime(tmdbRefreshedAt)}</span>}
+              {tmdbError && <span className="refresh-note error-note">{tmdbError}</span>}
             </div>
             <button
               className={
@@ -1195,7 +1202,7 @@ function App() {
               />
             </>
           ) : (
-            <EmptyState title="TMDb releases will load once TMDB_API_KEY is available on the server" />
+            <EmptyState title={tmdbError || 'TMDb releases will load once TMDB_API_KEY is available on the server'} />
           )}
         </section>
       )}

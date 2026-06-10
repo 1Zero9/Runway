@@ -766,6 +766,10 @@ button:disabled {
   font-weight: 650;
 }
 
+.refresh-note.error-note {
+  color: var(--mg-sun);
+}
+
 .provider-row {
   gap: 6px;
   overflow-x: auto;

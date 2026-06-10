@@ -34,43 +34,51 @@ const discoverPagesPerProvider = 3
 const streamingResultLimit = 240
 
 export async function POST(request: Request) {
-  if (!(await hasMediaGuideSession())) {
+  try {
+    if (!(await hasMediaGuideSession())) {
+      return NextResponse.json(
+        { error: 'Runway login required.' },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } },
+      )
+    }
+
+    const apiKey = process.env.TMDB_API_KEY?.trim()
+    if (!apiKey) {
+      return NextResponse.json({ error: 'TMDB_API_KEY is not configured in this Vercel environment.' }, { status: 500 })
+    }
+
+    const { providers } = (await request.json()) as { providers?: Provider[] }
+    const providerMap = await fetchTmdbProviders(apiKey, providers?.length ? providers : defaultProviders)
+    const enabledProviders = providerMap.filter((item) => item.enabled && item.id)
+    const [movieRows, tvRows, cinemaRows, movieGenres, tvGenres] = await Promise.all([
+      enabledProviders.length ? fetchTmdbDiscover(apiKey, 'movie', enabledProviders) : Promise.resolve([]),
+      enabledProviders.length ? fetchTmdbDiscover(apiKey, 'tv', enabledProviders) : Promise.resolve([]),
+      fetchTmdbCinema(apiKey),
+      fetchTmdbGenres(apiKey, 'movie'),
+      fetchTmdbGenres(apiKey, 'tv'),
+    ])
+
     return NextResponse.json(
-      { error: 'Runway login required.' },
-      { status: 401, headers: { 'Cache-Control': 'no-store' } },
+      {
+        refreshedAt: new Date().toISOString(),
+        genreMap: { ...movieGenres, ...tvGenres },
+        providers: providerMap,
+        streaming: [...movieRows, ...tvRows].sort((a, b) => b.vote_average - a.vote_average).slice(0, streamingResultLimit),
+        cinema: cinemaRows,
+      },
+      { headers: { 'Cache-Control': 'private, max-age=900' } },
+    )
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Could not load TMDb data.' },
+      { status: 502, headers: { 'Cache-Control': 'no-store' } },
     )
   }
-
-  if (!process.env.TMDB_API_KEY) {
-    return NextResponse.json({ error: 'TMDB_API_KEY is not configured.' }, { status: 500 })
-  }
-
-  const { providers } = (await request.json()) as { providers?: Provider[] }
-  const providerMap = await fetchTmdbProviders(process.env.TMDB_API_KEY, providers?.length ? providers : defaultProviders)
-  const enabledProviders = providerMap.filter((item) => item.enabled && item.id)
-  const [movieRows, tvRows, cinemaRows, movieGenres, tvGenres] = await Promise.all([
-    enabledProviders.length ? fetchTmdbDiscover(process.env.TMDB_API_KEY, 'movie', enabledProviders) : Promise.resolve([]),
-    enabledProviders.length ? fetchTmdbDiscover(process.env.TMDB_API_KEY, 'tv', enabledProviders) : Promise.resolve([]),
-    fetchTmdbCinema(process.env.TMDB_API_KEY),
-    fetchTmdbGenres(process.env.TMDB_API_KEY, 'movie'),
-    fetchTmdbGenres(process.env.TMDB_API_KEY, 'tv'),
-  ])
-
-  return NextResponse.json(
-    {
-      refreshedAt: new Date().toISOString(),
-      genreMap: { ...movieGenres, ...tvGenres },
-      providers: providerMap,
-      streaming: [...movieRows, ...tvRows].sort((a, b) => b.vote_average - a.vote_average).slice(0, streamingResultLimit),
-      cinema: cinemaRows,
-    },
-    { headers: { 'Cache-Control': 'private, max-age=900' } },
-  )
 }
 
 async function fetchTmdbProviders(apiKey: string, currentProviders: Provider[]) {
   const response = await fetch(`https://api.themoviedb.org/3/watch/providers/movie?api_key=${apiKey}&watch_region=IE`)
-  if (!response.ok) throw new Error('Could not load TMDb providers.')
+  await assertTmdbResponse(response, 'providers')
   const data = (await response.json()) as { results: { provider_id: number; provider_name: string }[] }
 
   return currentProviders.map((provider) => {
@@ -94,7 +102,7 @@ async function fetchTmdbDiscover(
           const response = await fetch(
             `https://api.themoviedb.org/3/discover/${type}?api_key=${apiKey}&watch_region=IE&with_watch_providers=${provider.id}&sort_by=popularity.desc&page=${page}`,
           )
-          if (!response.ok) throw new Error('Could not load TMDb titles.')
+          await assertTmdbResponse(response, `${provider.label} ${type} titles`)
           const data = (await response.json()) as { results: TmdbItem[] }
           return data.results
         }),
@@ -120,7 +128,7 @@ async function fetchTmdbCinema(apiKey: string): Promise<TmdbItem[]> {
       .toISOString()
       .slice(0, 10)}&primary_release_date.lte=${future.toISOString().slice(0, 10)}&sort_by=primary_release_date.asc`,
   )
-  if (!response.ok) throw new Error('Could not load cinema releases.')
+  await assertTmdbResponse(response, 'cinema releases')
   const data = (await response.json()) as { results: TmdbItem[] }
   return data.results.slice(0, 18).map((item) => ({ ...item, media_type: 'movie', provider: item.release_date }))
 }
@@ -130,6 +138,20 @@ async function fetchTmdbGenres(apiKey: string, type: 'movie' | 'tv') {
   if (!response.ok) return {}
   const data = (await response.json()) as { genres: { id: number; name: string }[] }
   return Object.fromEntries(data.genres.map((genre) => [genre.id, genre.name]))
+}
+
+async function assertTmdbResponse(response: Response, label: string) {
+  if (response.ok) return
+
+  let detail = ''
+  try {
+    const data = (await response.json()) as { status_message?: string }
+    detail = data.status_message ? ` ${data.status_message}` : ''
+  } catch {
+    detail = ''
+  }
+
+  throw new Error(`TMDb ${label} request failed (${response.status}).${detail}`)
 }
 
 function dedupeByProvider(items: TmdbItem[]) {
