@@ -33,7 +33,10 @@ export async function ensureRecommendationTables(sql: MediaGuideSql) {
       poster_path text,
       overview text,
       note text,
+      dominant_colour text,
       created_at timestamp default current_timestamp
     )
   `
+
+  await sql`alter table media_recommendation_items add column if not exists dominant_colour text`
 }

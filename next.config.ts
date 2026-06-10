@@ -2,7 +2,10 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   images: {
-    domains: ['www.google.com'],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'image.tmdb.org', pathname: '/t/p/**' },
+      { protocol: 'https', hostname: 'static.tvmaze.com', pathname: '/uploads/**' },
+    ],
   },
 }
 

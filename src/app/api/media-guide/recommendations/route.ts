@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { hasMediaGuideSession } from '@/lib/media-guide-auth'
 import { ensureRecommendationTables, getMediaGuideSql } from '@/lib/media-guide-db'
+import { extractDominantColour } from '@/lib/dominant-colour'
 
 type RecommendationPayload = {
   action?: 'create-list' | 'rename-list' | 'add-item' | 'move-item' | 'delete-list' | 'delete-item'
@@ -32,7 +33,7 @@ export async function GET() {
       order by created_at desc
     `,
     sql`
-      select id, list_id, tmdb_id, media_type, status, title, service, poster_path, overview, note
+      select id, list_id, tmdb_id, media_type, status, title, service, poster_path, overview, note, dominant_colour
       from media_recommendation_items
       order by created_at desc
     `,
@@ -95,7 +96,7 @@ export async function POST(request: Request) {
       update media_recommendation_items
       set list_id = ${payload.listId || null}
       where id = ${payload.itemId}
-      returning id, list_id, tmdb_id, media_type, status, title, service, poster_path, overview, note
+      returning id, list_id, tmdb_id, media_type, status, title, service, poster_path, overview, note, dominant_colour
     `
     if (!rows.length) return NextResponse.json({ error: 'item not found.' }, { status: 404 })
     return NextResponse.json(mapItem(rows[0]))
@@ -107,9 +108,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'item title and status are required.' }, { status: 400 })
     }
 
+    const dominantColour = item.posterPath ? await extractDominantColour(item.posterPath) : null
+
     const rows = await sql`
       insert into media_recommendation_items (
-        id, list_id, tmdb_id, media_type, status, title, service, poster_path, overview, note
+        id, list_id, tmdb_id, media_type, status, title, service, poster_path, overview, note, dominant_colour
       )
       values (
         ${crypto.randomUUID()},
@@ -121,9 +124,10 @@ export async function POST(request: Request) {
         ${item.service ?? ''},
         ${item.posterPath ?? null},
         ${item.overview ?? ''},
-        ${item.note ?? ''}
+        ${item.note ?? ''},
+        ${dominantColour}
       )
-      returning id, list_id, tmdb_id, media_type, status, title, service, poster_path, overview, note
+      returning id, list_id, tmdb_id, media_type, status, title, service, poster_path, overview, note, dominant_colour
     `
 
     return NextResponse.json(mapItem(rows[0]), { status: 201 })
@@ -152,6 +156,7 @@ function mapItem(row: Record<string, unknown>) {
     posterPath: row.poster_path ? String(row.poster_path) : null,
     overview: row.overview ? String(row.overview) : '',
     note: row.note ? String(row.note) : '',
+    dominantColour: row.dominant_colour ? String(row.dominant_colour) : null,
   }
 }
 
