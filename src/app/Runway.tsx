@@ -104,6 +104,9 @@ type WatchingItem = {
   watchedCount?: number
   done: boolean
   status?: WatchStatus
+  currentSeason?: number
+  currentEpisode?: number
+  tmdbId?: number | null
 }
 
 type RecommendationList = {
@@ -188,7 +191,13 @@ const starterSkyChannelMatches = [
   'Comedy Central',
   'Discovery',
   'National Geographic',
+  'More4',
+  'E4',
+  'Channel 5',
+  'Film4',
 ]
+
+const dadChannelName = 'More4'
 
 function App() {
   const [tab, setTab] = useState<Tab>('today')
@@ -235,6 +244,7 @@ function App() {
   const [posterScale, setPosterScale] = useStoredState('mediaguide.posterScale', 100)
   const [recommendationLists, setRecommendationLists] = useState<RecommendationList[]>([])
   const [recommendationItems, setRecommendationItems] = useState<RecommendationItem[]>([])
+  const [suggestions, setSuggestions] = useState<TmdbItem[]>([])
   const [genreMap, setGenreMap] = useState<Record<number, string>>({})
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [installState, setInstallState] = useState<'available' | 'installed' | 'manual'>('manual')
@@ -571,6 +581,24 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    let ignore = false
+    async function loadSuggestions() {
+      try {
+        const response = await fetch('/api/media-guide/suggestions')
+        if (!response.ok) return
+        const data = (await response.json()) as { suggestions: TmdbItem[] }
+        if (!ignore) setSuggestions(data.suggestions)
+      } catch {
+        // suggestions are best-effort
+      }
+    }
+    loadSuggestions()
+    return () => {
+      ignore = true
+    }
+  }, [recommendationItems])
+
   function toggleProvider(label: string) {
     setProviders((current) =>
       current.map((provider) =>
@@ -678,9 +706,13 @@ function App() {
     await updateWatchingItem(item, { userRating }, `${item.title} rated ${userRating} stars`)
   }
 
+  async function updateEpisode(item: WatchingItem, season: number, episode: number) {
+    await updateWatchingItem(item, { currentSeason: season, currentEpisode: episode })
+  }
+
   async function updateWatchingItem(
     item: WatchingItem,
-    patch: Partial<Pick<WatchingItem, 'done' | 'lastWatchedAt' | 'status' | 'userRating' | 'watchedCount'>>,
+    patch: Partial<Pick<WatchingItem, 'done' | 'lastWatchedAt' | 'status' | 'userRating' | 'watchedCount' | 'currentSeason' | 'currentEpisode' | 'tmdbId'>>,
     successMessage?: string,
   ) {
     setWatching((current) =>
@@ -851,48 +883,115 @@ function App() {
         </button>
       </header>
 
-      <section className="summary-band">
-        <div className="signal">
-          <Tv size={20} />
-          <div>
-            <strong>{tvLoading ? 'Loading' : tvItems.length}</strong>
-            <span>EPG listings</span>
+      <section className="home-panel">
+        {/* Continue Watching */}
+        {watching.filter((i) => getWatchStatus(i) === 'watching').length > 0 && (
+          <div className="home-section">
+            <p className="home-section-label">Continue watching</p>
+            <div className="continue-strip">
+              {watching
+                .filter((i) => getWatchStatus(i) === 'watching')
+                .sort((a, b) => (b.lastWatchedAt ?? '').localeCompare(a.lastWatchedAt ?? ''))
+                .slice(0, 5)
+                .map((item) => (
+                  <button key={item.id} className="continue-card" type="button" onClick={() => setTab('watching')}>
+                    <span className="continue-title">{item.title}</span>
+                    <span className="continue-meta">
+                      {item.type !== 'film' && item.type !== 'sport'
+                        ? `S${String(item.currentSeason ?? 1).padStart(2, '0')} E${String(item.currentEpisode ?? 0).padStart(2, '0')}`
+                        : item.service}
+                    </span>
+                    {item.lastWatchedAt && (
+                      <span className="continue-date">Last watched {formatShortDate(item.lastWatchedAt)}</span>
+                    )}
+                  </button>
+                ))}
+            </div>
           </div>
-        </div>
-        <div className="signal">
-          <MonitorPlay size={20} />
-          <div>
-            <strong>{enabledProviders.length}</strong>
-            <span>services</span>
+        )}
+
+        {/* Up next / coming up */}
+        {dueSoon.length > 0 && (
+          <div className="home-section">
+            <p className="home-section-label">Up next</p>
+            <div className="next-strip">
+              {dueSoon.map((item) => (
+                <button key={item.id} type="button" onClick={() => setTab('watching')}>
+                  {item.title}
+                  <small>{formatShortDate(item.nextEpisode)}</small>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="signal">
-          <CalendarDays size={20} />
-          <div>
-            <strong>{activeWatchingCount}</strong>
-            <span>tracked</span>
+        )}
+
+        {/* Suggestions from TMDb */}
+        {suggestions.length > 0 && (
+          <div className="home-section">
+            <p className="home-section-label">
+              <Sparkles size={14} />
+              Suggested for you
+            </p>
+            <div className="suggestion-strip">
+              {suggestions.slice(0, 6).map((item) => (
+                <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
+                  {item.poster_path ? (
+                    <img src={`https://image.tmdb.org/t/p/w185${item.poster_path}`} alt="" />
+                  ) : (
+                    <div className="poster-fallback">
+                      <MonitorPlay size={18} />
+                    </div>
+                  )}
+                  <div className="suggestion-info">
+                    <strong>{item.title ?? item.name}</strong>
+                    <span>{item.provider}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="icon-button quiet"
+                    aria-label={`Track ${item.title ?? item.name}`}
+                    onClick={() => persistWatchingItem(mediaToWatchingItem(item))}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </article>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="signal">
-          <Users size={20} />
-          <div>
-            <strong>{recommendationLists.length}</strong>
-            <span>lists</span>
+        )}
+
+        {/* Stats row */}
+        <div className="summary-band">
+          <div className="signal">
+            <Tv size={20} />
+            <div>
+              <strong>{tvLoading ? '…' : tvItems.length}</strong>
+              <span>on TV</span>
+            </div>
+          </div>
+          <div className="signal">
+            <MonitorPlay size={20} />
+            <div>
+              <strong>{enabledProviders.length}</strong>
+              <span>services</span>
+            </div>
+          </div>
+          <div className="signal">
+            <Star size={20} />
+            <div>
+              <strong>{activeWatchingCount}</strong>
+              <span>tracked</span>
+            </div>
+          </div>
+          <div className="signal">
+            <Users size={20} />
+            <div>
+              <strong>{recommendationLists.length}</strong>
+              <span>lists</span>
+            </div>
           </div>
         </div>
       </section>
-
-      {dueSoon.length > 0 && (
-        <section className="next-strip">
-          <span>Up next</span>
-          {dueSoon.map((item) => (
-            <button key={item.id} type="button" onClick={() => setTab('watching')}>
-              {item.title}
-              <small>{formatShortDate(item.nextEpisode)}</small>
-            </button>
-          ))}
-        </section>
-      )}
 
       <nav className="tabs" aria-label="Guide views">
         <TabButton active={tab === 'today'} icon={<Tv size={18} />} label="Today" onClick={() => setTab('today')} />
@@ -949,6 +1048,18 @@ function App() {
             <div className="segmented-actions time-scope" aria-label="Listing time range">
               <button className={sportOnly ? 'active' : ''} type="button" onClick={() => setSportOnly((current) => !current)}>
                 Sport
+              </button>
+              <button
+                className={channelFilter !== 'all' && channelOptions.find((c) => c.id === channelFilter)?.name === dadChannelName ? 'active' : ''}
+                type="button"
+                onClick={() => {
+                  const dadChannel = channelOptions.find((c) => c.name === dadChannelName)
+                  if (dadChannel) {
+                    setChannelFilter((current) => current === dadChannel.id ? 'all' : dadChannel.id)
+                  }
+                }}
+              >
+                More4
               </button>
               <button
                 className={listingTimeMode === 'from_now' ? 'active' : ''}
@@ -1303,10 +1414,43 @@ function App() {
                           </select>
                           <small>{item.cadence}</small>
                         </div>
+                        {item.type !== 'film' && item.type !== 'sport' && (
+                          <div className="episode-tracker">
+                            <span className="episode-label">
+                              S{String(item.currentSeason ?? 1).padStart(2, '0')} E{String(item.currentEpisode ?? 0).padStart(2, '0')}
+                            </span>
+                            <button
+                              type="button"
+                              className="ep-btn"
+                              aria-label="Previous episode"
+                              onClick={() => {
+                                const ep = (item.currentEpisode ?? 0) - 1
+                                if (ep < 0) {
+                                  const s = Math.max(1, (item.currentSeason ?? 1) - 1)
+                                  updateEpisode(item, s, 0)
+                                } else {
+                                  updateEpisode(item, item.currentSeason ?? 1, ep)
+                                }
+                              }}
+                            >−</button>
+                            <button
+                              type="button"
+                              className="ep-btn"
+                              aria-label="Next episode"
+                              onClick={() => updateEpisode(item, item.currentSeason ?? 1, (item.currentEpisode ?? 0) + 1)}
+                            >+</button>
+                            <button
+                              type="button"
+                              className="ep-btn"
+                              aria-label="Next season"
+                              onClick={() => updateEpisode(item, (item.currentSeason ?? 1) + 1, 1)}
+                            >S+</button>
+                          </div>
+                        )}
                         <div className="watch-feedback-row">
                           <button type="button" onClick={() => markWatched(item)}>
                             <Check size={14} />
-                            Watched
+                            {item.type === 'film' ? 'Watched' : 'Ep watched'}
                           </button>
                           <div className="star-rating" aria-label={`${item.title} rating`}>
                             {[1, 2, 3, 4, 5].map((rating) => (
@@ -1323,8 +1467,8 @@ function App() {
                           </div>
                           {(item.watchedCount ?? 0) > 0 && (
                             <small>
-                              Watched {item.watchedCount} {item.watchedCount === 1 ? 'time' : 'times'}
-                              {item.lastWatchedAt ? ` - last ${formatShortDate(item.lastWatchedAt)}` : ''}
+                              {item.type === 'film' ? 'Watched' : `${item.watchedCount} ep${item.watchedCount === 1 ? '' : 's'} watched`}
+                              {item.lastWatchedAt ? ` — last ${formatShortDate(item.lastWatchedAt)}` : ''}
                             </small>
                           )}
                         </div>

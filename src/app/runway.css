@@ -141,6 +141,7 @@
 }
 
 .topbar,
+.home-panel,
 .summary-band,
 .tool-row,
 .section-heading,
@@ -1548,6 +1549,156 @@ button:disabled {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ── Home panel ─────────────────────────────────────────────────────────── */
+
+.home-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.home-section {
+  padding: 10px 0 0;
+}
+
+.home-section-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--mg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0 0 8px;
+}
+
+/* Continue watching strip */
+.continue-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.continue-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--mg-border);
+  background: rgba(255, 255, 255, 0.045);
+  min-width: 130px;
+  max-width: 180px;
+  text-align: left;
+}
+
+.continue-title {
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.continue-meta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mg-teal);
+}
+
+.continue-date {
+  font-size: 11px;
+  color: var(--mg-muted);
+}
+
+/* Suggestion strip */
+.suggestion-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.suggestion-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 32px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--mg-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.suggestion-card img,
+.suggestion-card .poster-fallback {
+  width: 44px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suggestion-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.suggestion-info strong {
+  font-size: 14px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.suggestion-info span {
+  font-size: 12px;
+  color: var(--mg-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Episode tracker */
+.episode-tracker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+.episode-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--mg-teal);
+  min-width: 70px;
+}
+
+.ep-btn {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 7px;
+  border: 1px solid var(--mg-border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--mg-ink);
+  line-height: 1.4;
+}
+
+.ep-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 @media (min-width: 720px) {
