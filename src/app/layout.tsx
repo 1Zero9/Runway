@@ -1,14 +1,14 @@
-import { IBM_Plex_Mono, Inter } from 'next/font/google'
+import { Fraunces, Inter } from 'next/font/google'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import './runway.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-ui', display: 'swap' })
-const ibmPlexMono = IBM_Plex_Mono({
+const fraunces = Fraunces({
   subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-mono',
+  variable: '--font-display',
   display: 'swap',
+  axes: ['opsz', 'SOFT', 'WONK'],
 })
 
 export const metadata: Metadata = {
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en-IE">
-      <body className={`${inter.variable} ${ibmPlexMono.variable}`}>{children}</body>
+      <body className={`${inter.variable} ${fraunces.variable}`}>{children}</body>
     </html>
   )
 }

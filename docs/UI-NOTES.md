@@ -10,6 +10,31 @@ RUNWAY-BRIEF.md supersedes all prior UI work. Light mode only, red accent `#C236
 
 ---
 
+## Phase 1 — Light theme tokens & type ✅
+
+**What changed:**
+
+- **`src/app/layout.tsx`** — Replaced `IBM_Plex_Mono` with `Fraunces` (with `opsz`, `SOFT`, `WONK` axes). Font variable wired as `--font-display`. `Inter` remains as `--font-ui`.
+- **`src/app/runway.css`** — Complete rewrite of token sheet and all component styles:
+  - New palette: `--bg #F6F7F9`, `--surface #FFFFFF`, `--surface-sunken #EEF0F3`, `--line #E2E5EA`, `--line-strong #C9CED6`, `--ink #16181D`, `--ink-soft #5A6170`, `--ink-faint #9AA1AD`, `--accent #C2362B`, `--accent-rgb 194,54,43`, `--accent-soft #FBEAE8`, `--positive #1E7A4D`
+  - Shadows: layered ambient `--shadow-sm / --shadow-md` tuned for light mode
+  - Radii: `--radius-sm: 8px`, `--radius-md: 14px`, `--radius-poster: 10px`
+  - Removed: `--surface-raised`, `--text`, `--text-dim`, `--danger`, `--font-mono`, IBM Plex Mono references
+  - All token names updated: `--text` → `--ink`, `--text-dim` → `--ink-soft`, `--surface-raised` → `--surface-sunken`
+  - Hardcoded dark colors (`rgba(11,13,16,...)`, `#0B0D10`) replaced with new light palette
+  - Cards get border + `var(--shadow-sm)` ambient shadow; hover lifts to `var(--shadow-md)` + `translateY(-2px)` over 150ms
+  - Segmented controls: resting state is `--surface-sunken`, active is `--surface` with shadow
+  - Active tab: `background: var(--accent)` (red), `color: #FFFFFF`
+  - `.programme--tracked`: `background: var(--accent-soft)` with red left inset border
+  - Section headings (`.settings-panel > h2`, `.settings-roadmap > h2`): Fraunces 22px + `--line-strong` hairline rule beneath
+  - Numeric display elements (episode labels, times, countdowns, codes): `font-feature-settings: "tnum"` + `text-transform: uppercase` + `letter-spacing: 0.04em` — no third typeface
+  - Mobile tabs: light glass `rgba(255,255,255,0.92)` with blur instead of dark glass
+  - Toast: light surface + border instead of dark glass
+
+**Acceptance criteria met:** Zero hardcoded dark colors; zero old token names; every view renders in the light theme; focus rings use `--accent` red throughout; Fraunces active on section headers.
+
+---
+
 ## Phase 0 — Triage ✅
 
 **What changed:**
