@@ -104,6 +104,7 @@ type WatchingItem = {
   currentSeason?: number
   currentEpisode?: number
   tmdbId?: number | null
+  posterPath?: string | null
 }
 
 type TmdbShowDetail = {
@@ -465,7 +466,7 @@ function App() {
           kind: 'watch' as const,
           id: `watch-${i.id}`,
           title: i.title,
-          posterPath: null as null,
+          posterPath: i.posterPath ?? null,
           date: i.nextEpisode,
           days,
           chip: `${seasonPrefix}${dayStr}`,
@@ -1221,7 +1222,7 @@ function App() {
                         />
                       ) : (
                         <div className="poster-fallback">
-                          <MonitorPlay size={18} />
+                          <span className="poster-fallback-initial">{((item.title ?? item.name ?? '?')[0]).toUpperCase()}</span>
                         </div>
                       )}
                       <div className="suggestion-info">
@@ -1827,10 +1828,7 @@ function CountdownCard({
 }) {
   const isUrgent = days <= 7
   return (
-    <div
-      className="countdown-card"
-      style={dominantColour ? ({ borderColor: `${dominantColour}40` } as CSSProperties) : undefined}
-    >
+    <div className="countdown-card">
       {posterPath ? (
         <Image
           src={`https://image.tmdb.org/t/p/w185${posterPath}`}
@@ -1869,7 +1867,21 @@ function WatchlistGrid({
       {items.map((item) => (
         <div key={item.id} className="watchlist-card">
           <div className="watchlist-card-poster">
-            <MonitorPlay size={20} />
+            {item.posterPath ? (
+              <Image
+                src={`https://image.tmdb.org/t/p/w185${item.posterPath}`}
+                alt=""
+                width={185}
+                height={278}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                placeholder="blur"
+                blurDataURL={makePosterBlur(null)}
+              />
+            ) : (
+              <div className="poster-fallback" style={{ width: '100%', height: '100%', background: 'var(--surface-sunken)' }}>
+                <span className="poster-fallback-initial">{(item.title[0] ?? '?').toUpperCase()}</span>
+              </div>
+            )}
           </div>
           <div className="watchlist-card-info">
             <span>{item.title}</span>
@@ -1965,15 +1977,10 @@ function MediaGrid({
         const isTracked = trackedTitleSet.has(normalizeTitle(item.title ?? item.name ?? ''))
         const hasStatus = itemStatuses.size > 0 || isTracked
         const dominantColour = dominantColourByKey.get(key)
-        const cardStyle = dominantColour
-          ? { borderColor: `${dominantColour}40` } as CSSProperties
-          : undefined
-
         return (
           <article
             className={hasStatus ? 'media-card selected' : 'media-card'}
             key={`${item.media_type ?? 'movie'}-${item.provider}-${item.id}`}
-            style={cardStyle}
           >
             {item.poster_path ? (
               <Image
@@ -1988,7 +1995,7 @@ function MediaGrid({
               />
             ) : (
               <div className="poster-fallback large">
-                <MonitorPlay size={28} />
+                <span className="poster-fallback-initial">{((item.title ?? item.name ?? '?')[0]).toUpperCase()}</span>
                 <span className="poster-fallback-title">{item.title ?? item.name}</span>
               </div>
             )}
@@ -2353,6 +2360,7 @@ function mediaToWatchingItem(item: TmdbItem): WatchingItem {
     type: item.media_type === 'movie' ? 'film' : 'show',
     done: false,
     tmdbId: item.id,
+    posterPath: item.poster_path ?? null,
   }
 }
 
@@ -2511,7 +2519,7 @@ function formatShortDate(value: string) {
 }
 
 function makePosterBlur(colour: string | null | undefined): string {
-  const bg = colour ?? '#14171C'
+  const bg = colour ?? '#EEF0F3'
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="15"><rect width="10" height="15" fill="${bg}"/></svg>`
   return `data:image/svg+xml;base64,${btoa(svg)}`
 }

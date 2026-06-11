@@ -19,6 +19,7 @@ type WatchlistRow = {
   current_season: number | null
   current_episode: number | null
   tmdb_id: number | null
+  poster_path: string | null
 }
 
 type WatchlistPayload = {
@@ -34,6 +35,7 @@ type WatchlistPayload = {
   currentSeason?: number | null
   currentEpisode?: number | null
   tmdbId?: number | null
+  posterPath?: string | null
   watchedCount?: number
   done?: boolean
   status?: string
@@ -45,7 +47,7 @@ export async function GET() {
 
   const sql = await getSql()
   const rows = await sql`
-    select id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id
+    select id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path
     from media_watchlist
     order by done asc, next_episode asc nulls last, created_at desc
   `
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
   const userRating = normalizeRating(payload.userRating)
   const rows = await sql`
     insert into media_watchlist (
-      id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id
+      id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path
     )
     values (
       ${payload.id ?? crypto.randomUUID()},
@@ -83,9 +85,10 @@ export async function POST(request: Request) {
       ${payload.status ?? (payload.done ? 'completed' : 'watching')},
       ${payload.currentSeason ?? 1},
       ${payload.currentEpisode ?? 0},
-      ${payload.tmdbId ?? null}
+      ${payload.tmdbId ?? null},
+      ${payload.posterPath ?? null}
     )
-    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id
+    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path
   `
 
   return NextResponse.json(mapRow(rows[0] as WatchlistRow), { status: 201 })
@@ -113,7 +116,7 @@ export async function PATCH(request: Request) {
         current_episode = coalesce(${payload.currentEpisode ?? null}, current_episode),
         tmdb_id = coalesce(${payload.tmdbId ?? null}, tmdb_id)
     where id = ${payload.id}
-    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id
+    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path
   `
 
   if (!rows.length) {
@@ -175,6 +178,7 @@ async function ensureTable(sql: NeonQueryFunction<false, false>) {
   await sql`alter table media_watchlist add column if not exists current_season int default 1`
   await sql`alter table media_watchlist add column if not exists current_episode int default 0`
   await sql`alter table media_watchlist add column if not exists tmdb_id int`
+  await sql`alter table media_watchlist add column if not exists poster_path text`
 }
 
 function mapRow(row: WatchlistRow) {
@@ -194,6 +198,7 @@ function mapRow(row: WatchlistRow) {
     currentSeason: row.current_season ?? 1,
     currentEpisode: row.current_episode ?? 0,
     tmdbId: row.tmdb_id ?? null,
+    posterPath: row.poster_path ?? null,
   }
 }
 

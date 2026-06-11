@@ -1046,6 +1046,19 @@ button:disabled {
   max-width: 100%;
 }
 
+.poster-fallback-initial {
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: 500;
+  color: var(--ink-faint);
+  line-height: 1;
+  user-select: none;
+}
+
+.poster-fallback.large .poster-fallback-initial {
+  font-size: var(--fs-3xl);
+}
+
 .programme-copy {
   min-width: 0;
   text-align: left;

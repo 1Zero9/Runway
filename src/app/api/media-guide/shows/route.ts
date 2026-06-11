@@ -3,6 +3,7 @@ import { hasMediaGuideSession } from '@/lib/media-guide-auth'
 import { getMediaGuideSql } from '@/lib/media-guide-db'
 import { ensureRunwayTables, RUNWAY_USER_ID } from '@/lib/runway-db'
 import type { RunwayShowRow, RunwayEpisodeRow } from '@/lib/runway-db'
+import { extractDominantColour } from '@/lib/dominant-colour'
 
 type TmdbShowResponse = {
   id: number
@@ -153,8 +154,15 @@ export async function POST(request: Request) {
 
   const show = rows[0] as RunwayShowRow
 
-  // Sync episodes in the background (non-blocking to the response)
+  // Sync episodes and extract dominant colour in the background (non-blocking)
   syncEpisodes(sql, show.id, tmdb.id, tmdb.seasons ?? [], apiKey).catch(() => {})
+  if (tmdb.poster_path) {
+    extractDominantColour(tmdb.poster_path).then(async (colour) => {
+      if (colour) {
+        await sql`update runway_shows set dominant_colour = ${colour} where id = ${show.id}`
+      }
+    }).catch(() => {})
+  }
 
   return NextResponse.json({ show }, { status: 201 })
 }

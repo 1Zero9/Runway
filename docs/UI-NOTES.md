@@ -10,6 +10,40 @@ RUNWAY-BRIEF.md supersedes all prior UI work. Light mode only, red accent `#C236
 
 ---
 
+## Phase 3 — Artwork pipeline ✅
+
+**What changed:**
+
+**DB migration (additive):**
+- `media_watchlist` — `ALTER TABLE ... ADD COLUMN IF NOT EXISTS poster_path text`. All existing rows get `null`; new rows populated at track time.
+
+**API changes:**
+- `watchlist/route.ts` — `poster_path` added to SELECT (GET), INSERT + RETURNING (POST), RETURNING (PATCH). Added `posterPath?: string | null` to `WatchlistPayload`. `mapRow` now returns `posterPath`. DB migration added to `ensureTable`.
+- `shows/route.ts` — imports `extractDominantColour`. After upsert, launches non-blocking `extractDominantColour(tmdb.poster_path)` and writes the result to `runway_shows.dominant_colour`. Same fire-and-forget pattern as `syncEpisodes`.
+
+**`Runway.tsx` changes:**
+- `WatchingItem` — added `posterPath?: string | null` field.
+- `mediaToWatchingItem` — maps `item.poster_path` to `posterPath` so tracking from browse strips persists the poster.
+- `countdownItems` — watchItems now pass `posterPath: i.posterPath ?? null` (was hardcoded `null as null`).
+- `makePosterBlur` — fallback colour changed from dark `#14171C` to light `#EEF0F3` (matches `--surface-sunken`).
+- `WatchlistGrid` — replaced `<MonitorPlay size={20} />` with `<Image>` (w185 size) + `poster-fallback-initial` Fraunces letter fallback.
+- `MediaGrid` (streaming grid) — replaced `<MonitorPlay size={28} />` fallback with Fraunces initial letter.
+- Suggestion strip — replaced `<MonitorPlay size={18} />` fallback with Fraunces initial letter.
+- `CountdownCard` — removed `borderColor: ${dominantColour}40` inline style (brief: only keep colour for blur placeholders).
+- `MediaGrid` — removed `borderColor: ${dominantColour}40` card border.
+- `dominantColour` variable kept for `blurDataURL` in `MediaGrid`; `dominantColourByKey` prop retained.
+
+**`runway.css` changes:**
+- Added `.poster-fallback-initial` — Fraunces, 18px, `--ink-faint`, `user-select: none`.
+- Added `.poster-fallback.large .poster-fallback-initial` — `--fs-3xl` (28–36px) for the large card fallback.
+
+**Failure mode audit:**
+- Logging still effortless: track buttons work, poster persists automatically from `mediaToWatchingItem`.
+- Data still trustworthy: poster_path stored once at track time; DB migration additive; all existing items get `null` posterPath and show Fraunces initial.
+- Dashboard still clean: removed colour borders don't affect layout; blur placeholders remain for images.
+
+---
+
 ## Phase 2 — Data model: watch history as the engine ✅
 
 **What changed:**
