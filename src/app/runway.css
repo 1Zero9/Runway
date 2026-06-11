@@ -342,12 +342,26 @@ button:disabled {
 
 /* ── Topbar wordmark ────────────────────────────────────────────────────── */
 
+.topbar-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
 .topbar-wordmark {
   font-size: var(--fs-xl);
   font-weight: 750;
   letter-spacing: -0.01em;
   white-space: nowrap;
   color: var(--accent);
+}
+
+.build-id {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-dim);
+  opacity: 0.6;
 }
 
 /* ── View sections (within a view, e.g. Runway has streaming + cinema) ──── */

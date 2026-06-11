@@ -984,7 +984,10 @@ function App() {
     <main className="app-shell">
       {toast && <div className="toast">{toast}</div>}
       <header className="topbar">
-        <h1 className="topbar-wordmark">Runway</h1>
+        <div className="topbar-brand">
+          <h1 className="topbar-wordmark">Runway</h1>
+          <span className="build-id">{process.env.NEXT_PUBLIC_COMMIT ?? 'dev'}</span>
+        </div>
         <nav className="tabs" aria-label="Guide views">
           <TabButton active={tab === 'tonight'} icon={<Tv size={18} />} label="Tonight" onClick={() => setTab('tonight')} />
           <TabButton active={tab === 'runway'} icon={<Sparkles size={18} />} label="Runway" onClick={() => setTab('runway')} />
