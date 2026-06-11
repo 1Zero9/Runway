@@ -27,12 +27,12 @@ export default async function OgImage({ params }: OgPageProps) {
         style={{
           width: '100%',
           height: '100%',
-          background: '#0B0D10',
+          background: '#F6F7F9',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontFamily: 'serif',
-          color: '#E8EAED',
+          color: '#16181D',
         }}
       >
         Runway
@@ -56,7 +56,7 @@ export default async function OgImage({ params }: OgPageProps) {
       style={{
         width: '100%',
         height: '100%',
-        background: 'linear-gradient(145deg, #0F1318 0%, #0B0D10 100%)',
+        background: 'linear-gradient(145deg, #FFFFFF 0%, #F6F7F9 100%)',
         display: 'flex',
         alignItems: 'center',
         padding: '60px',
@@ -82,9 +82,9 @@ export default async function OgImage({ params }: OgPageProps) {
                   height: 270,
                   objectFit: 'cover',
                   borderRadius: 14,
-                  border: '2px solid rgba(245,184,46,0.25)',
+                  border: '2px solid rgba(194,54,43,0.18)',
                   transform: `rotate(${rotations[i]}deg)`,
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
                 }}
               />
             )
@@ -98,7 +98,7 @@ export default async function OgImage({ params }: OgPageProps) {
           style={{
             fontSize: 18,
             fontWeight: 600,
-            color: '#9AA0A8',
+            color: '#6B7280',
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
           }}
@@ -109,7 +109,7 @@ export default async function OgImage({ params }: OgPageProps) {
           style={{
             fontSize: 52,
             fontWeight: 750,
-            color: '#E8EAED',
+            color: '#16181D',
             lineHeight: 1.15,
             wordBreak: 'break-word',
           }}
@@ -119,7 +119,7 @@ export default async function OgImage({ params }: OgPageProps) {
         <div
           style={{
             fontSize: 22,
-            color: '#9AA0A8',
+            color: '#6B7280',
           }}
         >
           {items.length} picks
@@ -129,7 +129,7 @@ export default async function OgImage({ params }: OgPageProps) {
             marginTop: 24,
             fontSize: 26,
             fontWeight: 750,
-            color: '#F5B82E',
+            color: '#C2362B',
           }}
         >
           Runway

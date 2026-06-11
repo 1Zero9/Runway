@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { formatEpisodeLabel } from '@/lib/episode-label'
 import { buildShortlist } from '@/lib/shortlist'
@@ -119,6 +120,7 @@ type TmdbShowDetail = {
   numberOfEpisodes: number
   episodeRunTime: number[]
   seasons: { seasonNumber: number; episodeCount: number }[]
+  backdropPath?: string | null
 }
 
 type RecommendationList = {
@@ -269,6 +271,7 @@ function App() {
   const [calendarToken, setCalendarToken] = useState<string | null>(null)
   const [calendarTokenLoading, setCalendarTokenLoading] = useState(false)
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
+  const [transitioningItemId, setTransitioningItemId] = useState<string | null>(null)
   const refreshPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nowLineRef = useRef<HTMLDivElement>(null)
 
@@ -1032,20 +1035,34 @@ function App() {
   }
 
   async function openShowDetail(item: WatchingItem) {
-    if (detailItemId === item.id) {
-      setDetailItemId(null)
+    const closing = detailItemId === item.id
+
+    const doOpen = () => {
+      setDetailItemId(closing ? null : item.id)
+      setTransitioningItemId(null)
+    }
+
+    // Fetch detail data first (so it's ready before transition)
+    if (!closing && item.tmdbId && !showDetailCache[item.tmdbId]) {
+      fetch(`/api/media-guide/show-details?id=${item.tmdbId}`)
+        .then((res) => res.ok ? res.json() : null)
+        .then((data: TmdbShowDetail | null) => {
+          if (data) setShowDetailCache((cache) => ({ ...cache, [data.id]: data }))
+        })
+        .catch(() => undefined)
+    }
+
+    if (closing || !('startViewTransition' in document)) {
+      doOpen()
       return
     }
-    setDetailItemId(item.id)
-    if (item.tmdbId && !showDetailCache[item.tmdbId]) {
-      try {
-        const res = await fetch(`/api/media-guide/show-details?id=${item.tmdbId}`)
-        if (res.ok) {
-          const data = (await res.json()) as TmdbShowDetail
-          setShowDetailCache((cache) => ({ ...cache, [data.id]: data }))
-        }
-      } catch {}
-    }
+
+    // Give the title its transition name in the OLD state
+    flushSync(() => setTransitioningItemId(item.id))
+
+    document.startViewTransition(() => {
+      flushSync(doOpen)
+    })
   }
 
   async function handleEpisodeUpdate(item: WatchingItem, season: number, episode: number) {
@@ -1713,7 +1730,9 @@ function App() {
                           {watchStatus === 'completed' && <Check size={16} />}
                         </button>
                         <div>
-                          <h2>{item.title}</h2>
+                          <h2
+                            style={transitioningItemId === item.id ? { viewTransitionName: 'detail-title' } as CSSProperties : undefined}
+                          >{item.title}</h2>
                           <p>
                             {item.service}
                             <span className="type-badge">{watchTypeLabel(item.type)}</span>
@@ -2832,6 +2851,34 @@ function ShowDetailPanel({
 
   return (
     <div className="show-detail-panel">
+      {showDetail.backdropPath && (
+        <div className="show-detail-backdrop">
+          <Image
+            src={`https://image.tmdb.org/t/p/w780${showDetail.backdropPath}`}
+            alt=""
+            width={780}
+            height={439}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            placeholder="blur"
+            blurDataURL={makePosterBlur(null)}
+          />
+          <div className="show-detail-backdrop-overlay" />
+          <div className="show-detail-backdrop-title">
+            {item.posterPath && (
+              <Image
+                src={`https://image.tmdb.org/t/p/w92${item.posterPath}`}
+                alt=""
+                width={92}
+                height={138}
+                style={{ width: 46, height: 69, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
+                placeholder="blur"
+                blurDataURL={makePosterBlur(null)}
+              />
+            )}
+            <h3 style={{ viewTransitionName: 'detail-title' } as CSSProperties}>{item.title}</h3>
+          </div>
+        </div>
+      )}
       <div className="show-detail-meta">
         <span className="episode-label">
           {watchedCount}/{showDetail.numberOfEpisodes} episodes · {remainingLabel}

@@ -2407,7 +2407,7 @@ button:disabled {
 .shared-list-card {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 22px;
+  border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
   transition: box-shadow 150ms ease, transform 150ms ease;
@@ -3590,4 +3590,78 @@ kbd {
 
 .onboarding-search button:hover {
   opacity: 0.88;
+}
+
+/* ── Phase 6 (UI.md) — show detail backdrop header ───────────────────────── */
+
+.show-detail-backdrop {
+  position: relative;
+  height: 140px;
+  overflow: hidden;
+  border-radius: 8px 8px 0 0;
+  margin-bottom: var(--space-4);
+}
+
+.show-detail-backdrop-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--surface) 0%, rgba(255,255,255,0) 60%);
+}
+
+.show-detail-backdrop-title {
+  position: absolute;
+  bottom: var(--space-3);
+  left: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.show-detail-backdrop-title h3 {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.2;
+  text-shadow: 0 1px 3px rgba(246, 247, 249, 0.8);
+}
+
+/* ── Phase 8 (UI.md) — View Transitions API ──────────────────────────────── */
+
+@supports (view-transition-name: test) {
+  /* Default crossfade for elements without specific names */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 200ms;
+    animation-timing-function: ease-out;
+  }
+
+  /* Title morph: old position fades out, new fades in and slides slightly */
+  ::view-transition-old(detail-title) {
+    animation: vt-title-out 200ms ease-out forwards;
+  }
+
+  ::view-transition-new(detail-title) {
+    animation: vt-title-in 240ms ease-out forwards;
+  }
+}
+
+@keyframes vt-title-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-4px); }
+}
+
+@keyframes vt-title-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @supports (view-transition-name: test) {
+    ::view-transition-old(detail-title),
+    ::view-transition-new(detail-title) {
+      animation-duration: 0ms;
+    }
+  }
 }

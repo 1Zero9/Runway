@@ -619,3 +619,72 @@ All tables get `user_id` defaulting to 'steve' via `RUNWAY_USER_ID` constant.
 - ✅ New-user empty state shows inline search
 - ✅ 40 tests pass
 - ✅ TypeScript: clean
+
+---
+
+## UI-NOTES.md Phase 6 (Library backdrop & progress) ✅
+
+**Adapted from RUNWAY-UI.md Phase 6 — Library: progress & episode grid**
+
+**What changed:**
+
+- `TmdbShowDetail` type extended with `backdropPath?: string | null`
+- `show-details` API route: added `backdrop_path` to TMDb response type, maps to `backdropPath` in JSON response
+- `ShowDetailPanel` gets a backdrop header when `showDetail.backdropPath` is present:
+  - `w780` TMDb backdrop image fills a 140px-tall strip at the top of the panel
+  - Gradient overlay (`--surface` 100% → transparent) from bottom
+  - Small poster thumbnail + title overlaid at bottom-left
+  - The title `<h3>` receives `view-transition-name: 'detail-title'` for the morph (see Phase 8)
+- Library list items already had `.watch-progress-bar` (2px accent-filled strip) — confirmed working; no changes needed
+
+**New CSS classes:** `.show-detail-backdrop`, `.show-detail-backdrop-overlay`, `.show-detail-backdrop-title`
+
+---
+
+## UI-NOTES.md Phase 7 (Share page light-mode refresh) ✅
+
+**Adapted from RUNWAY-UI.md Phase 7 — Share pages**
+
+**What changed:**
+
+- `opengraph-image.tsx`: updated OG image to light-mode palette:
+  - Background: `linear-gradient(145deg, #FFFFFF, #F6F7F9)` (matches `--surface` → `--bg`)
+  - Title/text: `#16181D` (matches `--ink`)
+  - Poster border accent: `rgba(194,54,43,0.18)` (matches `--accent` / `#C2362B`)
+  - Box shadow: `rgba(0,0,0,0.14)` (lighter than dark-mode version)
+  - "Runway" wordmark: `#C2362B` (red accent)
+  - Secondary text: `#6B7280` (matches `--ink-soft` approximation)
+- `share/[slug]/page.tsx`: `makePosterBlur` fallback color changed from `#14171C` (dark) to `#EEF0F3` (light, matches `--surface-sunken`)
+- Share card `border-radius` reduced from hard-coded `22px` to `var(--radius-md)` (Chanel rule — one decoration removed)
+
+---
+
+## UI-NOTES.md Phase 8 (View Transitions + final polish) ✅
+
+**Adapted from RUNWAY-UI.md Phase 8 — Motion & final polish**
+
+**What changed:**
+
+- `flushSync` imported from `react-dom`
+- `transitioningItemId` state added — tracks which item is mid-transition
+- `openShowDetail` updated to use `document.startViewTransition` (feature-detected):
+  1. `flushSync(() => setTransitioningItemId(item.id))` — sync render gives the source title `view-transition-name: 'detail-title'`
+  2. `document.startViewTransition(() => flushSync(doOpen))` — browser captures old state, callback opens the detail (new state has backdrop title with same VT name)
+  3. Browser morphs the title between its old and new positions
+- Library row `<h2>` gets `viewTransitionName: 'detail-title'` when `transitioningItemId === item.id`
+- ShowDetailPanel backdrop title `<h3>` has `viewTransitionName: 'detail-title'` always (only present when detail is open, so no duplicate-name conflict)
+- View Transitions CSS: `@supports (view-transition-name: test)` guard; custom `vt-title-out` / `vt-title-in` keyframes (200–240ms ease-out fade+translate); `prefers-reduced-motion` disables animation
+- Token sweep: no hardcoded dark-mode hex values remaining in CSS, Runway.tsx, or share pages
+
+**New CSS:** `.show-detail-backdrop` family, `@keyframes vt-title-out`, `@keyframes vt-title-in`, `@supports (view-transition-name: test)` block
+
+**Acceptance criteria status:**
+- ✅ Backdrop header in show detail panel when TMDb backdrop available
+- ✅ Library progress bar confirmed working (already existed)
+- ✅ OG image uses light-mode palette
+- ✅ Share card border-radius uses design token (decoration removed)
+- ✅ View Transitions API: title morphs from library row to detail header (feature-detected, no polyfill)
+- ✅ `prefers-reduced-motion` guard on transition animations
+- ✅ No dark-mode hardcoded colors remaining
+- ✅ TypeScript: clean
+- ✅ 40 tests pass

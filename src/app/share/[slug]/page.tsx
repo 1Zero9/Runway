@@ -4,7 +4,7 @@ import { ensureRecommendationTables, getMediaGuideSql } from '@/lib/media-guide-
 import '../../runway.css'
 
 function makePosterBlur(colour: string | null | undefined): string {
-  const bg = colour ?? '#14171C'
+  const bg = colour ?? '#EEF0F3'
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="15"><rect width="10" height="15" fill="${bg}"/></svg>`
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`
 }
