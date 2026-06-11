@@ -28,6 +28,9 @@ export type WatchlistPayload = {
   tmdbId?: number | null
   posterPath?: string | null
   leavingDate?: string | null
+  relationship?: string | null
+  favouritedAt?: string | null
+  recommendedAt?: string | null
 }
 
 export type WatchlistPatch = Partial<
@@ -42,6 +45,9 @@ export type WatchlistPatch = Partial<
     | 'currentEpisode'
     | 'tmdbId'
     | 'leavingDate'
+    | 'relationship'
+    | 'favouritedAt'
+    | 'recommendedAt'
   >
 > & { id: string }
 
@@ -85,6 +91,20 @@ export async function watchlistRemove(id: string): Promise<ActionResult> {
   } catch {
     return { ok: false, error: 'Network error removing watchlist item.' }
   }
+}
+
+export async function watchlistSetRelationship(
+  id: string,
+  relationship: string | null,
+): Promise<ActionResult<WatchlistPayload>> {
+  return watchlistUpdate({ id, relationship })
+}
+
+export async function watchlistSetFavourite(
+  id: string,
+  on: boolean,
+): Promise<ActionResult<WatchlistPayload>> {
+  return watchlistUpdate({ id, favouritedAt: on ? new Date().toISOString() : null })
 }
 
 // ─── Recommendations ──────────────────────────────────────────────────────────

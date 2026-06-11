@@ -722,3 +722,194 @@ All tables get `user_id` defaulting to 'steve' via `RUNWAY_USER_ID` constant.
 - ✅ No inline `fetch` calls remaining for mutations in `Runway.tsx`
 - ✅ TypeScript: clean
 - ✅ 40 tests pass
+
+---
+
+## CONTROLS Phase 1 (Title state model) ✅
+
+**Adapted from RUNWAY-CONTROLS.md Phase 1**
+
+**New file: `src/lib/title-state.ts`**
+
+```typescript
+export type Relationship = 'none' | 'watchlisted' | 'tracking' | 'finished' | 'abandoned'
+```
+
+Legal transitions encoded in `LEGAL_TRANSITIONS` record — not a free-for-all. Key invariants:
+- `finished → watchlisted` is illegal (must re-track to re-watchlist)
+- `finished → abandoned` is illegal (must go via `tracking`)
+- `abandoned → finished` is illegal (must go via `tracking`)
+- `watchlisted → abandoned` is illegal (must start watching first)
+
+Exported functions:
+- `isLegalTransition(from, to)` — validates against the transition table
+- `legalTargets(from)` — returns array of valid targets from current state
+- `statusToRelationship(status?, done?)` — backward-compat mapper (old `WatchStatus` → `Relationship`)
+- `relationshipToStatus(rel)` — returns `{ status: string; done: boolean }` for DB writes
+- `relationshipLabel(rel)` — display label for current state ("On your list", "Tracking", etc.)
+- `relationshipActionLabel(rel)` — action label to transition into this state ("Watchlist", "Track", "Seen it", etc.)
+
+**New file: `src/lib/__tests__/title-state.test.ts`**
+
+47 tests: all legal transitions (15), all illegal (8), `legalTargets` structure, `statusToRelationship` mappings, `relationshipToStatus` mappings, round-trip tests.
+
+**DB schema (additive):**
+- `media_watchlist`: 3 new columns via `ADD COLUMN IF NOT EXISTS`:
+  - `relationship text` — the explicit relationship value (null for legacy rows)
+  - `relationship_changed_at timestamptz` — updated whenever relationship is patched
+  - `favourited_at timestamptz` — null = not favourited
+  - `recommended_at timestamptz` — null = not recommended
+
+**API changes (`watchlist/route.ts`):**
+- GET, POST, PATCH, RETURNING clauses updated to include `relationship`, `favourited_at`, `recommended_at`
+- PATCH uses `CASE WHEN hasRelationship::boolean THEN ... ELSE ... END` for conditional NULL-safe updates
+- When `relationship` is patched, `status` and `done` are auto-derived (no client needs to send both)
+- `mapRow` returns camelCase `relationship`, `favouritedAt`, `recommendedAt`
+
+**`src/lib/actions.ts` additions:**
+- `WatchlistPayload` and `WatchlistPatch` extended with `relationship?`, `favouritedAt?`, `recommendedAt?`
+- `watchlistSetRelationship(id, relationship)` — thin wrapper over `watchlistUpdate`
+- `watchlistSetFavourite(id, on)` — sets/clears `favouritedAt` timestamp
+
+**`Runway.tsx` additions:**
+- `WatchingItem` type extended with `relationship?`, `favouritedAt?`, `recommendedAt?`
+- `deriveRelationship(item)` — reads `item.relationship` if set; falls back to `statusToRelationship(item.status, item.done)` for backward compatibility
+- Imports: `statusToRelationship`, `relationshipToStatus`, `isLegalTransition`, `relationshipLabel`, `relationshipActionLabel`, `Relationship` type
+
+**Backward compatibility:** All existing items have `relationship = null` in the DB. `deriveRelationship` handles this without a data migration. No existing `/api/media-guide/*` consumers are broken.
+
+**Acceptance criteria:**
+- ✅ 87 tests pass (47 title-state + 40 existing)
+- ✅ TypeScript: clean
+- ✅ DB migration additive
+- ✅ `statusToRelationship` / `relationshipToStatus` round-trips verified
+
+---
+
+## CONTROLS Phase 2 (Toggle standard) ✅
+
+**Adapted from RUNWAY-CONTROLS.md Phase 2**
+
+**Undo toast system:**
+
+Replaced the prior 2200ms auto-dismiss effect with a `showToast(message, undo?)` helper:
+- `toastTimerRef` manages a 5-second auto-dismiss per toast
+- Any call to `showToast` clears the existing timer and starts a new one (no stacking)
+- `dismissToast()` clears both timer and state
+- When `undo` callback is provided, the toast renders an "Undo" button
+- Clicking Undo fires the callback then dismisses the toast
+
+Updated callers:
+- `markWatched` — shows `"${title} — episode watched"` with undo that reverts watchedCount/lastWatchedAt/status/done
+- `persistWatchingItem` — shows `"${title} added"` with undo that removes the item
+- `transitionRelationship` — shows `"${title} — ${label}"` with undo that reverts to prior relationship
+- `toggleFavourite` — shows `"${title} — added to favourites"` / `"removed from favourites"` with undo
+
+**Two-tap confirm for remove:**
+
+`requestConfirm(id, action)`:
+1. First call: sets `pendingConfirmId = id`, starts 3-second auto-clear via `pendingConfirmTimerRef`
+2. Second call within 3s: executes `action()`, clears state
+3. Auto-clears: no second tap → confirm state evaporates
+
+Remove buttons use `requestConfirm('remove-' + item.id, () => removeWatching(item.id))`.
+CSS: `.icon-button.pending-confirm` shows amber border; `.confirm-label` shows "Confirm?" text overlay.
+
+**Relationship toggle chip bar:**
+
+Each library watch-item gets a `.rel-chip-bar` row below the title:
+```tsx
+{(['watchlisted', 'tracking', 'finished', 'abandoned'] as Relationship[]).map((r) => (
+  <button aria-pressed={rel === r} className={rel === r ? 'rel-chip active' : 'rel-chip'}
+          onClick={() => { if (rel !== r) transitionRelationship(item, r) }}>
+    {rel === r ? relationshipLabel(r) : relationshipActionLabel(r)}
+  </button>
+))}
+```
+
+`transitionRelationship(item, to)` validates with `isLegalTransition`, applies with `watchlistSetRelationship`, saves prior state for undo.
+
+**Favourite toggle:**
+
+Star button in the feedback row toggles `favouritedAt`. Shows filled star when `Boolean(item.favouritedAt)`. Uses `watchlistSetFavourite` action with undo toast.
+
+**CSS additions:**
+- `.rel-badge` variants: `tracking` (blue), `finished` (green), `abandoned` (red), `watchlisted` (gray)
+- `.rel-chip-bar`, `.rel-chip`, `.rel-chip.active` — `color-mix(in srgb, var(--accent) 12%, transparent)` tint on active
+- `.toggle-chip`, `.toggle-chip.active` — favourite button
+- `.toast` flex layout, `.toast-undo` button
+- `.icon-button.pending-confirm`, `.confirm-label` — two-tap confirm visual
+
+**Acceptance criteria:**
+- ✅ Undo toast appears for all destructive/reversible actions (5s auto-dismiss)
+- ✅ Remove requires two taps (3s window)
+- ✅ Relationship chips on every library item; `aria-pressed` for screen readers
+- ✅ Favourite toggle with undo
+- ✅ TypeScript: clean
+- ✅ 87 tests pass
+
+---
+
+## CONTROLS Phase 3 (Global search) ✅
+
+**Adapted from RUNWAY-CONTROLS.md Phase 3**
+
+**New API route: `src/app/api/media-guide/search/route.ts`**
+
+Server-side proxy to TMDb `/search/multi`. API key stays on the server. Filters:
+- No `media_type: 'person'` results
+- Must have `poster_path`
+- `vote_count > 5` (suppresses obscure/incomplete entries)
+- Max 8 results
+- Region: IE
+
+**Search trigger:**
+
+- Search icon (`<Search size={20} />`) in topbar, left of the Guide icon
+- `Cmd+K` / `Ctrl+K` from anywhere
+- `/` key when no overlay or modal is active
+- `Escape` closes the overlay
+
+**`SearchOverlay` component:**
+
+Full command-palette modal:
+- Input autofocuses on open
+- Debounced 300ms TMDb search (via `setTimeout` / `clearTimeout`)
+- Two result groups rendered separately, never interleaved:
+  1. **Your library** — instant filter of `watching` state by title substring
+  2. **On TMDb** — debounced remote results with skeleton shimmer while loading
+- Per-result quick actions (keyboard letter or button):
+  - `W` — Watchlist (relationship: `watchlisted`)
+  - `T` — Track (relationship: `tracking`)
+  - `S` — Seen it (relationship: `finished`)
+- Library results have "Open" link (navigates to Library tab, sets detail panel)
+- Recent searches: last 5 stored in `localStorage` via `useStoredState('mediaguide.recentSearches', [])`. Shown when input is empty. Added on Enter / action click.
+- Keyboard navigation: `ArrowUp`/`ArrowDown` between results, `Enter` to activate focused result
+
+**Mobile layout:**
+
+`@media (max-width: 600px)`: overlay anchors to viewport bottom as a sheet (slides up from below) rather than a centered floating panel.
+
+**CSS additions:**
+- `.search-overlay` — fixed fullscreen backdrop with `backdrop-filter: blur(4px)`
+- `.search-overlay-panel` — centred 560px floating panel (mobile: full-width bottom sheet)
+- `@keyframes overlay-in` (backdrop fade), `@keyframes panel-in` (panel slide+scale)
+- `.search-result-group`, `.search-group-label`, `.search-result-row`, `.search-result-poster`, `.search-result-info`, `.search-result-actions`, `.search-action-btn`
+- `.search-skeleton` with shimmer animation
+- `@media (prefers-reduced-motion: reduce)` disables all overlay animations
+
+**New state in `Runway.tsx`:**
+- `searchOpen: boolean`
+- `recentSearches: string[]` (persisted via `useStoredState`)
+
+**Acceptance criteria:**
+- ✅ `/` and `Cmd+K` open the overlay from any tab
+- ✅ Library results appear instantly (no debounce)
+- ✅ TMDb results debounced 300ms; show skeleton during load
+- ✅ Two groups never visually interleave
+- ✅ `S` shortcut marks a title as Seen it in ≤5 seconds end-to-end
+- ✅ Recent searches stored in localStorage (max 5)
+- ✅ Mobile: bottom-sheet layout
+- ✅ `prefers-reduced-motion` guard on animations
+- ✅ TypeScript: clean
+- ✅ 87 tests pass

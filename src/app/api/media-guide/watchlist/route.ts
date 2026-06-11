@@ -21,6 +21,9 @@ type WatchlistRow = {
   tmdb_id: number | null
   poster_path: string | null
   leaving_date: string | null
+  relationship: string | null
+  favourited_at: string | null
+  recommended_at: string | null
 }
 
 type WatchlistPayload = {
@@ -41,6 +44,9 @@ type WatchlistPayload = {
   watchedCount?: number
   done?: boolean
   status?: string
+  relationship?: string | null
+  favouritedAt?: string | null
+  recommendedAt?: string | null
 }
 
 export async function GET() {
@@ -49,7 +55,7 @@ export async function GET() {
 
   const sql = await getSql()
   const rows = await sql`
-    select id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date
+    select id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at
     from media_watchlist
     order by done asc, next_episode asc nulls last, created_at desc
   `
@@ -70,7 +76,7 @@ export async function POST(request: Request) {
   const userRating = normalizeRating(payload.userRating)
   const rows = await sql`
     insert into media_watchlist (
-      id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date
+      id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at
     )
     values (
       ${payload.id ?? crypto.randomUUID()},
@@ -89,9 +95,12 @@ export async function POST(request: Request) {
       ${payload.currentEpisode ?? 0},
       ${payload.tmdbId ?? null},
       ${payload.posterPath ?? null},
-      ${payload.leavingDate ?? null}
+      ${payload.leavingDate ?? null},
+      ${payload.relationship ?? null},
+      ${payload.favouritedAt ?? null},
+      ${payload.recommendedAt ?? null}
     )
-    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date
+    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at
   `
 
   return NextResponse.json(mapRow(rows[0] as WatchlistRow), { status: 201 })
@@ -108,23 +117,45 @@ export async function PATCH(request: Request) {
 
   const sql = await getSql()
   const userRating = normalizeRating(payload.userRating)
+  const hasRelationship = 'relationship' in (payload as Record<string, unknown>)
+  const hasFavouritedAt = 'favouritedAt' in (payload as Record<string, unknown>)
+  const hasRecommendedAt = 'recommendedAt' in (payload as Record<string, unknown>)
+
+  // When relationship is explicitly set, derive status/done from it
+  let derivedStatus = payload.status ?? null
+  let derivedDone = payload.done ?? null
+  if (hasRelationship && payload.relationship) {
+    const map: Record<string, { status: string; done: boolean }> = {
+      watchlisted: { status: 'planned',   done: false },
+      tracking:    { status: 'watching',  done: false },
+      finished:    { status: 'completed', done: true },
+      abandoned:   { status: 'dropped',   done: false },
+    }
+    const derived = map[payload.relationship]
+    if (derived) { derivedStatus = derived.status; derivedDone = derived.done }
+  }
+
   const rows = await sql`
     update media_watchlist
-    set done = coalesce(${payload.done ?? null}, done),
-        status = coalesce(${payload.status ?? null}, status),
+    set done = coalesce(${derivedDone}, done),
+        status = coalesce(${derivedStatus}, status),
         user_rating = coalesce(${userRating}, user_rating),
-        last_watched_at = coalesce(${payload.lastWatchedAt || null}, last_watched_at),
+        last_watched_at = coalesce(${payload.lastWatchedAt ?? null}, last_watched_at),
         watched_count = coalesce(${payload.watchedCount ?? null}, watched_count),
         current_season = coalesce(${payload.currentSeason ?? null}, current_season),
         current_episode = coalesce(${payload.currentEpisode ?? null}, current_episode),
-        tmdb_id = coalesce(${payload.tmdbId ?? null}, tmdb_id)
+        tmdb_id = coalesce(${payload.tmdbId ?? null}, tmdb_id),
+        relationship = case when ${hasRelationship}::boolean then ${payload.relationship ?? null} else relationship end,
+        relationship_changed_at = case when ${hasRelationship}::boolean then now() else relationship_changed_at end,
+        favourited_at = case when ${hasFavouritedAt}::boolean then ${payload.favouritedAt ?? null}::timestamptz else favourited_at end,
+        recommended_at = case when ${hasRecommendedAt}::boolean then ${payload.recommendedAt ?? null}::timestamptz else recommended_at end
     where id = ${payload.id}
-    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date
+    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at
   `
+
   if ('leavingDate' in (payload as Record<string, unknown>)) {
     await sql`update media_watchlist set leaving_date = ${payload.leavingDate ?? null} where id = ${payload.id}`
-    const updated = rows[0] as WatchlistRow
-    updated.leaving_date = payload.leavingDate ?? null
+    if (rows[0]) (rows[0] as WatchlistRow).leaving_date = payload.leavingDate ?? null
   }
 
   if (!rows.length) {
@@ -188,6 +219,10 @@ async function ensureTable(sql: NeonQueryFunction<false, false>) {
   await sql`alter table media_watchlist add column if not exists tmdb_id int`
   await sql`alter table media_watchlist add column if not exists poster_path text`
   await sql`alter table media_watchlist add column if not exists leaving_date date`
+  await sql`alter table media_watchlist add column if not exists relationship text`
+  await sql`alter table media_watchlist add column if not exists relationship_changed_at timestamptz`
+  await sql`alter table media_watchlist add column if not exists favourited_at timestamptz`
+  await sql`alter table media_watchlist add column if not exists recommended_at timestamptz`
 }
 
 function mapRow(row: WatchlistRow) {
@@ -209,6 +244,9 @@ function mapRow(row: WatchlistRow) {
     tmdbId: row.tmdb_id ?? null,
     posterPath: row.poster_path ?? null,
     leavingDate: row.leaving_date ?? null,
+    relationship: row.relationship ?? null,
+    favouritedAt: row.favourited_at ?? null,
+    recommendedAt: row.recommended_at ?? null,
   }
 }
 

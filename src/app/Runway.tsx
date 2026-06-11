@@ -27,7 +27,7 @@ import {
 import Image from 'next/image'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import type { CSSProperties, FormEvent, ReactNode } from 'react'
+import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { formatEpisodeLabel } from '@/lib/episode-label'
 import { buildShortlist } from '@/lib/shortlist'
 import type { WatchlistItem } from '@/lib/shortlist'
@@ -35,6 +35,8 @@ import {
   watchlistAdd,
   watchlistUpdate,
   watchlistRemove,
+  watchlistSetRelationship,
+  watchlistSetFavourite,
   recommendationsAddItem,
   recommendationsRemoveItem,
   recommendationsCreateList,
@@ -44,6 +46,14 @@ import {
   calendarGetToken,
   calendarGenerateToken,
 } from '@/lib/actions'
+import {
+  statusToRelationship,
+  relationshipToStatus,
+  isLegalTransition,
+  relationshipLabel,
+  relationshipActionLabel,
+} from '@/lib/title-state'
+import type { Relationship } from '@/lib/title-state'
 import './runway.css'
 
 type Tab = 'tonight' | 'runway' | 'library' | 'settings' | 'guide'
@@ -125,6 +135,9 @@ type WatchingItem = {
   tmdbId?: number | null
   posterPath?: string | null
   leavingDate?: string | null
+  relationship?: Relationship | null
+  favouritedAt?: string | null
+  recommendedAt?: string | null
 }
 
 type TmdbShowDetail = {
@@ -285,8 +298,14 @@ function App() {
   const [calendarTokenLoading, setCalendarTokenLoading] = useState(false)
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
   const [transitioningItemId, setTransitioningItemId] = useState<string | null>(null)
+  const [toastUndo, setToastUndo] = useState<(() => void) | null>(null)
+  const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [recentSearches, setRecentSearches] = useStoredState<string[]>('mediaguide.recentSearches', [])
   const refreshPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nowLineRef = useRef<HTMLDivElement>(null)
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const inProgressShows = watching
     .filter((i) => getWatchStatus(i) === 'watching')
@@ -654,11 +673,41 @@ function App() {
     }
   }, [providers, setProviders, tmdbRefreshNonce])
 
-  useEffect(() => {
-    if (!toast) return
-    const timer = window.setTimeout(() => setToast(''), 2200)
-    return () => window.clearTimeout(timer)
-  }, [toast])
+  function showToast(message: string, undo?: () => void) {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    setToast(message)
+    setToastUndo(undo ?? null)
+    if (message) {
+      toastTimerRef.current = setTimeout(() => {
+        setToast('')
+        setToastUndo(null)
+        toastTimerRef.current = null
+      }, 5000)
+    }
+  }
+
+  function dismissToast() {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
+    setToast('')
+    setToastUndo(null)
+  }
+
+  function requestConfirm(id: string, action: () => void) {
+    if (pendingConfirmId === id) {
+      setPendingConfirmId(null)
+      if (pendingConfirmTimerRef.current) clearTimeout(pendingConfirmTimerRef.current)
+      action()
+    } else {
+      if (pendingConfirmTimerRef.current) clearTimeout(pendingConfirmTimerRef.current)
+      setPendingConfirmId(id)
+      pendingConfirmTimerRef.current = setTimeout(() => setPendingConfirmId(null), 3000)
+    }
+  }
+
+  function deriveRelationship(item: WatchingItem): Relationship {
+    if (item.relationship) return item.relationship
+    return statusToRelationship(item.status, item.done)
+  }
 
   useEffect(() => {
     return () => {
@@ -819,12 +868,14 @@ function App() {
     const result = await watchlistAdd(item)
     if (!result.ok) {
       setWatching((current) => current.filter((row) => row.id !== item.id))
-      setToast(result.error)
+      showToast(result.error)
       setWatchlistSource('local')
       return
     }
-    setWatching((current) => current.map((row) => (row.id === item.id ? (result.data as WatchingItem) : row)))
+    const saved = result.data as WatchingItem
+    setWatching((current) => current.map((row) => (row.id === item.id ? saved : row)))
     setWatchlistSource('neon')
+    showToast(`${item.title} added`, () => removeWatching(saved.id))
   }
 
   async function addWatching(event: FormEvent<HTMLFormElement>) {
@@ -862,15 +913,28 @@ function App() {
 
   async function markWatched(item: WatchingItem) {
     const nextStatus = item.type === 'film' ? 'completed' : 'watching'
-    await updateWatchingItem(
-      item,
-      {
-        done: nextStatus === 'completed',
-        lastWatchedAt: formatIrelandDate(new Date()),
-        status: nextStatus,
-        watchedCount: (item.watchedCount ?? 0) + 1,
+    const priorWatchedCount = item.watchedCount ?? 0
+    const priorLastWatchedAt = item.lastWatchedAt ?? null
+    const priorDone = item.done
+    const priorStatus = item.status ?? 'watching'
+
+    await updateWatchingItem(item, {
+      done: nextStatus === 'completed',
+      lastWatchedAt: formatIrelandDate(new Date()),
+      status: nextStatus,
+      watchedCount: priorWatchedCount + 1,
+    })
+
+    showToast(
+      item.type === 'film' ? `${item.title} watched` : `${item.title} — episode watched`,
+      async () => {
+        await updateWatchingItem(item, {
+          done: priorDone,
+          lastWatchedAt: priorLastWatchedAt,
+          status: priorStatus,
+          watchedCount: priorWatchedCount,
+        })
       },
-      item.type === 'film' ? `${item.title} marked watched` : `${item.title} episode watched`,
     )
   }
 
@@ -908,7 +972,7 @@ function App() {
     const result = await watchlistRemove(id)
     if (!result.ok) {
       if (prior) setWatching((current) => [prior, ...current])
-      setToast(result.error)
+      showToast(result.error)
       setWatchlistSource('local')
       return
     }
@@ -1091,12 +1155,141 @@ function App() {
     // optimistic update stands on failure — low-stakes field
   }
 
+  async function transitionRelationship(item: WatchingItem, to: Relationship) {
+    const from = deriveRelationship(item)
+    if (!isLegalTransition(from, to)) return
+
+    if (to === 'none') {
+      // "Remove" — uses two-tap confirm at the call site
+      return
+    }
+
+    const { status, done } = relationshipToStatus(to)
+    const priorRelationship = from
+    const priorStatus = item.status ?? 'watching'
+    const priorDone = item.done
+
+    setWatching((current) =>
+      current.map((row) => (row.id === item.id ? { ...row, relationship: to, status: status as WatchStatus, done } : row)),
+    )
+    const result = await watchlistSetRelationship(item.id, to)
+    if (!result.ok) {
+      setWatching((current) =>
+        current.map((row) =>
+          row.id === item.id ? { ...row, relationship: priorRelationship, status: priorStatus, done: priorDone } : row,
+        ),
+      )
+      showToast(result.error)
+      return
+    }
+    setWatching((current) =>
+      current.map((row) => (row.id === item.id ? (result.data as WatchingItem) : row)),
+    )
+    showToast(relationshipLabel(to), async () => {
+      // Undo: revert to prior relationship
+      setWatching((current) =>
+        current.map((row) =>
+          row.id === item.id ? { ...row, relationship: priorRelationship, status: priorStatus, done: priorDone } : row,
+        ),
+      )
+      await watchlistSetRelationship(item.id, priorRelationship)
+    })
+  }
+
+  async function seenIt(item: WatchingItem, tmdbDetail?: { seasons: { seasonNumber: number; episodeCount: number }[] }) {
+    const lastSeason = tmdbDetail?.seasons[tmdbDetail.seasons.length - 1]
+    const seenPatch: Partial<WatchingItem> = {
+      relationship: 'finished',
+      status: 'completed',
+      done: true,
+      lastWatchedAt: formatIrelandDate(new Date()),
+    }
+    if (lastSeason) {
+      seenPatch.currentSeason = lastSeason.seasonNumber
+      seenPatch.currentEpisode = lastSeason.episodeCount
+    }
+
+    const priorStatus = item.status ?? 'watching'
+    const priorDone = item.done
+    const priorRelationship = deriveRelationship(item)
+
+    setWatching((current) =>
+      current.map((row) => (row.id === item.id ? { ...row, ...seenPatch } : row)),
+    )
+    const result = await watchlistUpdate({ id: item.id, ...seenPatch })
+    if (!result.ok) {
+      setWatching((current) =>
+        current.map((row) =>
+          row.id === item.id ? { ...row, relationship: priorRelationship, status: priorStatus as WatchStatus, done: priorDone } : row,
+        ),
+      )
+      showToast(result.error)
+      return
+    }
+    setWatching((current) => current.map((row) => (row.id === item.id ? (result.data as WatchingItem) : row)))
+    showToast(`${item.title} — finished`)
+    setWatchlistSource('neon')
+  }
+
+  async function seenItFromSearch(tmdbItem: TmdbItem) {
+    const newItem: WatchingItem = {
+      ...mediaToWatchingItem(tmdbItem),
+      relationship: 'finished',
+      status: 'completed',
+      done: true,
+      lastWatchedAt: formatIrelandDate(new Date()),
+    }
+    await persistWatchingItem(newItem)
+  }
+
+  async function toggleFavourite(item: WatchingItem) {
+    const wasFav = Boolean(item.favouritedAt)
+    const nextFav = !wasFav
+    const nextFavAt = nextFav ? new Date().toISOString() : null
+
+    setWatching((current) =>
+      current.map((row) => (row.id === item.id ? { ...row, favouritedAt: nextFavAt } : row)),
+    )
+    const result = await watchlistSetFavourite(item.id, nextFav)
+    if (!result.ok) {
+      setWatching((current) =>
+        current.map((row) => (row.id === item.id ? { ...row, favouritedAt: item.favouritedAt ?? null } : row)),
+      )
+      showToast(result.error)
+      return
+    }
+    setWatching((current) => current.map((row) => (row.id === item.id ? (result.data as WatchingItem) : row)))
+    showToast(nextFav ? `${item.title} — favourited` : `${item.title} — unfavourited`, async () => {
+      await toggleFavourite({ ...item, favouritedAt: nextFavAt })
+    })
+  }
+
+  function addRecentSearch(q: string) {
+    setRecentSearches((prev) => {
+      const next = [q, ...prev.filter((s) => s !== q)].slice(0, 5)
+      return next
+    })
+  }
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const tag = (event.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      // Cmd+K or Ctrl+K — open search
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault()
+        setSearchOpen(true)
+        return
+      }
+      // / — open search (only when no overlay is open)
+      if (event.key === '/' && !showKeyboardHelp && !searchOpen) {
+        event.preventDefault()
+        setSearchOpen(true)
+        return
+      }
       switch (event.key) {
         case 'Escape':
+          if (searchOpen) { setSearchOpen(false); return }
           if (showKeyboardHelp) { setShowKeyboardHelp(false); return }
           if (detailItemId) { setDetailItemId(null); return }
           break
@@ -1119,16 +1312,43 @@ function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [detailItemId, showKeyboardHelp])
+  }, [detailItemId, showKeyboardHelp, searchOpen])
 
   return (
     <main className="app-shell">
-      {toast && <div className="toast">{toast}</div>}
+      {toast && (
+        <div className="toast" role="status">
+          <span>{toast}</span>
+          {toastUndo && (
+            <button
+              type="button"
+              className="toast-undo"
+              onClick={() => { toastUndo(); dismissToast() }}
+            >
+              Undo
+            </button>
+          )}
+        </div>
+      )}
+      {searchOpen && (
+        <SearchOverlay
+          watching={watching}
+          recentSearches={recentSearches}
+          trackedTitleSet={trackedTitleSet}
+          onClose={() => setSearchOpen(false)}
+          onWatchlist={(item) => { persistWatchingItem({ ...mediaToWatchingItem(item), relationship: 'watchlisted', status: 'planned', done: false }); setSearchOpen(false) }}
+          onTrack={(item) => { persistWatchingItem(mediaToWatchingItem(item)); setSearchOpen(false) }}
+          onSeen={(item) => { seenItFromSearch(item); setSearchOpen(false) }}
+          onAddRecent={addRecentSearch}
+          onOpenLibraryItem={(id) => { setTab('library'); setDetailItemId(id); setSearchOpen(false) }}
+        />
+      )}
       {showKeyboardHelp && (
         <div className="keyboard-overlay" role="dialog" aria-label="Keyboard shortcuts" onClick={() => setShowKeyboardHelp(false)}>
           <div className="keyboard-overlay-panel" onClick={(e) => e.stopPropagation()}>
             <h2 className="keyboard-overlay-title">Keyboard shortcuts</h2>
             <dl className="keyboard-shortcut-list">
+              <div><dt><kbd>/</kbd> or <kbd>⌘K</kbd></dt><dd>Search</dd></div>
               <div><dt><kbd>1</kbd></dt><dd>Dashboard</dd></div>
               <div><dt><kbd>2</kbd></dt><dd>Runway</dd></div>
               <div><dt><kbd>3</kbd></dt><dd>Library</dd></div>
@@ -1150,6 +1370,14 @@ function App() {
           <TabButton active={tab === 'library'} icon={<Star size={18} />} label="Library" onClick={() => setTab('library')} />
         </nav>
         <div className="topbar-actions">
+          <button
+            className="icon-button search-icon-btn"
+            type="button"
+            aria-label="Search (⌘K)"
+            onClick={() => setSearchOpen(true)}
+          >
+            <Search size={20} />
+          </button>
           <button className={tab === 'guide' ? 'icon-button active-icon' : 'icon-button'} type="button" aria-label="TV Guide" onClick={() => setTab('guide')}>
             <Tv size={20} />
           </button>
@@ -1708,6 +1936,9 @@ function App() {
                   const isShow = item.type !== 'film' && item.type !== 'sport'
                   const showDetail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
                   const progressPct = showDetail && isShow ? computeWatchProgress(item, showDetail) : 0
+                  const rel = deriveRelationship(item)
+                  const isFav = Boolean(item.favouritedAt)
+                  const isPendingRemove = pendingConfirmId === `remove-${item.id}`
                   return (
                     <div className={isExpanded ? 'watch-item-wrapper expanded' : 'watch-item-wrapper'} key={item.id} style={{ '--item-index': itemIndex } as CSSProperties}>
                       <article className={[watchStatus === 'completed' ? 'watch-item done' : 'watch-item', pulsingItemId === item.id ? 'pulse' : ''].filter(Boolean).join(' ')}>
@@ -1727,6 +1958,20 @@ function App() {
                             {item.service}
                             <span className="type-badge">{watchTypeLabel(item.type)}</span>
                           </p>
+                          {/* Relationship toggle chips */}
+                          <div className="rel-chip-bar" role="group" aria-label={`${item.title} status`}>
+                            {(['watchlisted', 'tracking', 'finished', 'abandoned'] as Relationship[]).map((r) => (
+                              <button
+                                key={r}
+                                type="button"
+                                aria-pressed={rel === r}
+                                className={rel === r ? 'rel-chip active' : 'rel-chip'}
+                                onClick={() => { if (rel !== r) transitionRelationship(item, r) }}
+                              >
+                                {rel === r ? relationshipLabel(r) : relationshipActionLabel(r)}
+                              </button>
+                            ))}
+                          </div>
                           <div className="watch-status-row">
                             <select
                               aria-label={`${item.title} watch status`}
@@ -1779,6 +2024,15 @@ function App() {
                               <Check size={14} />
                               {item.type === 'film' ? 'Watched' : 'Ep watched'}
                             </button>
+                            <button
+                              type="button"
+                              aria-pressed={isFav}
+                              className={isFav ? 'toggle-chip active' : 'toggle-chip'}
+                              onClick={() => toggleFavourite(item)}
+                            >
+                              <Heart size={13} fill={isFav ? 'currentColor' : 'none'} />
+                              {isFav ? 'Favourited' : 'Favourite'}
+                            </button>
                             <div className="star-rating" aria-label={`${item.title} rating`}>
                               {[1, 2, 3, 4, 5].map((rating) => (
                                 <button
@@ -1816,12 +2070,12 @@ function App() {
                           </button>
                         )}
                         <button
-                          className="icon-button quiet"
+                          className={isPendingRemove ? 'icon-button quiet pending-confirm' : 'icon-button quiet'}
                           type="button"
-                          aria-label={`Remove ${item.title}`}
-                          onClick={() => removeWatching(item.id)}
+                          aria-label={isPendingRemove ? `Confirm remove ${item.title}` : `Remove ${item.title}`}
+                          onClick={() => requestConfirm(`remove-${item.id}`, () => removeWatching(item.id))}
                         >
-                          <Trash2 size={17} />
+                          {isPendingRemove ? <span className="confirm-label">Remove?</span> : <Trash2 size={17} />}
                         </button>
                       </article>
                       {isExpanded && (
@@ -3239,6 +3493,241 @@ function formatGreeting(date: Date): string {
     month: 'long',
     timeZone: 'Europe/Dublin',
   }).format(date)
+}
+
+// ─── Search Overlay (Phase 3) ─────────────────────────────────────────────────
+
+function SearchOverlay({
+  watching,
+  recentSearches,
+  trackedTitleSet,
+  onClose,
+  onWatchlist,
+  onTrack,
+  onSeen,
+  onAddRecent,
+  onOpenLibraryItem,
+}: {
+  watching: WatchingItem[]
+  recentSearches: string[]
+  trackedTitleSet: Set<string>
+  onClose: () => void
+  onWatchlist: (item: TmdbItem) => void
+  onTrack: (item: TmdbItem) => void
+  onSeen: (item: TmdbItem) => void
+  onAddRecent: (q: string) => void
+  onOpenLibraryItem: (id: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [tmdbResults, setTmdbResults] = useState<TmdbItem[]>([])
+  const [tmdbLoading, setTmdbLoading] = useState(false)
+  const [highlightIdx, setHighlightIdx] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const libraryResults = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q || q.length < 2) return []
+    return watching.filter((item) => item.title.toLowerCase().includes(q)).slice(0, 5)
+  }, [watching, query])
+
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
+    const q = query.trim()
+    if (!q || q.length < 2) { setTmdbResults([]); return }
+    setTmdbLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/media-guide/search?q=${encodeURIComponent(q)}`)
+        if (res.ok) {
+          const data = (await res.json()) as { results: TmdbItem[] }
+          setTmdbResults(data.results ?? [])
+        }
+      } catch { /* best-effort */ }
+      setTmdbLoading(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  const totalResults = libraryResults.length + tmdbResults.length
+
+  function handleKeyDown(e: ReactKeyboardEvent) {
+    if (e.key === 'Escape') { onClose(); return }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setHighlightIdx((i) => Math.min(i + 1, totalResults - 1)); return }
+    if (e.key === 'ArrowUp') { e.preventDefault(); setHighlightIdx((i) => Math.max(i - 1, 0)); return }
+    if (e.key === 'Enter') {
+      const libItem = libraryResults[highlightIdx]
+      if (libItem) { onOpenLibraryItem(libItem.id); return }
+      const tmdbIdx = highlightIdx - libraryResults.length
+      const tmdbItem = tmdbResults[tmdbIdx]
+      if (tmdbItem) { onAddRecent(query.trim()); onTrack(tmdbItem) }
+      return
+    }
+    const tmdbIdx = highlightIdx - libraryResults.length
+    const tmdbItem = tmdbResults[tmdbIdx]
+    if (!tmdbItem) return
+    if (e.key === 'w' || e.key === 'W') { onAddRecent(query.trim()); onWatchlist(tmdbItem) }
+    if (e.key === 't' || e.key === 'T') { onAddRecent(query.trim()); onTrack(tmdbItem) }
+    if (e.key === 's' || e.key === 'S') { onAddRecent(query.trim()); onSeen(tmdbItem) }
+  }
+
+  const showEmpty = !query.trim()
+
+  return (
+    <div className="search-overlay" role="dialog" aria-label="Search" onClick={onClose}>
+      <div className="search-overlay-panel" onClick={(e) => e.stopPropagation()} onKeyDown={handleKeyDown}>
+        {/* Input row */}
+        <div className="search-overlay-input-row">
+          <Search size={18} aria-hidden />
+          <input
+            ref={inputRef}
+            className="search-overlay-input"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setHighlightIdx(0) }}
+            placeholder="Search shows & films…"
+            autoComplete="off"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && query.trim()) onAddRecent(query.trim())
+            }}
+          />
+          <button type="button" className="search-esc-btn" onClick={onClose}><kbd>Esc</kbd></button>
+        </div>
+
+        <div className="search-results">
+          {/* Empty state — recent searches */}
+          {showEmpty && recentSearches.length > 0 && (
+            <div className="search-group">
+              <p className="search-section-label">Recent</p>
+              {recentSearches.map((s) => (
+                <button key={s} type="button" className="search-recent-chip" onClick={() => setQuery(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {showEmpty && (
+            <button type="button" className="search-browse-link" onClick={onClose}>
+              Browse your library →
+            </button>
+          )}
+
+          {/* Library results */}
+          {libraryResults.length > 0 && (
+            <div className="search-group">
+              <p className="search-section-label">In your library</p>
+              {libraryResults.map((item, i) => {
+                const isHighlighted = highlightIdx === i
+                const rel = item.relationship ?? statusToRelationship(item.status, item.done)
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`search-result-row ${isHighlighted ? 'highlighted' : ''}`}
+                    onClick={() => onOpenLibraryItem(item.id)}
+                    onMouseEnter={() => setHighlightIdx(i)}
+                  >
+                    {item.posterPath ? (
+                      <Image
+                        src={`https://image.tmdb.org/t/p/w92${item.posterPath}`}
+                        alt=""
+                        width={32}
+                        height={48}
+                        style={{ width: 32, height: 48, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div className="search-result-poster-placeholder" />
+                    )}
+                    <div className="search-result-info">
+                      <strong>{item.title}</strong>
+                      <span className="search-result-meta">
+                        <span className={`rel-badge rel-badge-${rel}`}>{relationshipLabel(rel)}</span>
+                        {item.service && <span>{item.service}</span>}
+                        {item.currentSeason && item.currentEpisode !== undefined && (
+                          <span>S{item.currentSeason}·E{item.currentEpisode}</span>
+                        )}
+                      </span>
+                    </div>
+                    <ChevronRight size={16} className="search-result-arrow" />
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* TMDb results */}
+          {(!showEmpty && (tmdbResults.length > 0 || tmdbLoading)) && (
+            <div className="search-group">
+              <p className="search-section-label">Add something new</p>
+              {tmdbLoading && <div className="search-skeleton-row" />}
+              {tmdbResults.map((item, i) => {
+                const idx = libraryResults.length + i
+                const isHighlighted = highlightIdx === idx
+                const isTracked = trackedTitleSet.has(normalizeTitle(item.title ?? item.name ?? ''))
+                const year = item.release_date?.slice(0, 4) ?? item.first_air_date?.slice(0, 4)
+                const typeLabel = item.media_type === 'tv' ? 'TV series' : 'Film'
+                return (
+                  <div
+                    key={item.id}
+                    className={`search-result-row ${isHighlighted ? 'highlighted' : ''}`}
+                    onMouseEnter={() => setHighlightIdx(idx)}
+                  >
+                    {item.poster_path ? (
+                      <Image
+                        src={`https://image.tmdb.org/t/p/w92${item.poster_path}`}
+                        alt=""
+                        width={32}
+                        height={48}
+                        style={{ width: 32, height: 48, objectFit: 'cover', borderRadius: 4, flexShrink: 0 }}
+                      />
+                    ) : (
+                      <div className="search-result-poster-placeholder" />
+                    )}
+                    <div className="search-result-info">
+                      <strong>{item.title ?? item.name}</strong>
+                      <span className="search-result-meta">
+                        {year && <span>{year}</span>}
+                        <span>{typeLabel}</span>
+                        {isTracked && <span className="rel-badge rel-badge-tracking">In library</span>}
+                      </span>
+                    </div>
+                    <div className="search-result-actions">
+                      <button
+                        type="button"
+                        className="search-action-btn"
+                        title="Add to watchlist (W)"
+                        onClick={() => { onAddRecent(query.trim()); onWatchlist(item) }}
+                      >
+                        + Watchlist
+                      </button>
+                      <button
+                        type="button"
+                        className="search-action-btn"
+                        title="Track (T)"
+                        onClick={() => { onAddRecent(query.trim()); onTrack(item) }}
+                      >
+                        ▶ Track
+                      </button>
+                      <button
+                        type="button"
+                        className="search-action-btn search-action-seen"
+                        title="Seen it (S)"
+                        onClick={() => { onAddRecent(query.trim()); onSeen(item) }}
+                      >
+                        ✓ Seen it
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default App
