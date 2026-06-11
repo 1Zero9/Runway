@@ -262,6 +262,48 @@ Read this at the start of every session before touching any CSS or component cod
 - ✅ Mobile: 2-col grid, shorter collage
 - ✅ TypeScript: clean
 
-## Phase 8 — Motion & final polish
+## Phase 8 — Motion & final polish ✅
 
-Not started.
+**What changed:**
+
+- **`src/app/runway.css`** — Global polish pass. Added `::selection` (amber tint), thin dark scrollbar (`scrollbar-color`, `scrollbar-width`, `::-webkit-scrollbar`). Improved `button:active` scale from `0.99` → `0.96` with a 60ms transition. Added amber glow to `.tab.active` (`box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.3)`). Added `.icon-button.active` amber colour + border accent (used by episode-grid expand button). Added `.watch-item-wrapper:not(.expanded) > .watch-item:hover` subtle amber border highlight. Added six new `@keyframes`: `view-in`, `card-slide-in`, `toast-up`, `now-blink`. All new animations guarded by `@media (prefers-reduced-motion: no-preference)`.
+
+- **`src/app/Runway.tsx`** — Added `--card-index` CSS custom property to each UpNextRail card (stagger by 50ms). Added `--item-index` CSS custom property to each `.watch-item-wrapper` (stagger by 28ms). Both use `as CSSProperties` cast (same pattern as board row `--row-index`).
+
+**Animation inventory (Phase 8 additions):**
+
+| Trigger | Keyframe | Duration | Target |
+|---|---|---|---|
+| Tab switch / view mount | `view-in` (opacity + translateY 8px) | 240ms | `.view` |
+| Tab switch / view mount | `view-in` | 220ms | `.countdown-card` (nth-child stagger) |
+| Tab switch / view mount | `view-in` | 200ms | `.watchlist-card` (nth-child stagger) |
+| Library list render | `view-in` | 180ms | `.watch-item-wrapper` (`--item-index` × 28ms) |
+| Tonight data load | `card-slide-in` (opacity + translateX -8px) | 220ms | `.upnext-card` (`--card-index` × 50ms) |
+| Toast appear | `toast-up` (opacity + translateY 10px preserving translateX) | 200ms | `.toast` |
+| Continuous | `now-blink` (opacity 0.85 ↔ 0.3, 2.4s) | ∞ | `.now-line::before` (the `NOW` label) |
+| Completion | `completion-pulse` (box-shadow glow) | 700ms | `.watch-item.pulse` (Phase 6) |
+| Board row load | `board-row-in` (opacity + translateY 5px) | 180ms | `.programme` (Phase 4) |
+
+**Decisions:**
+- `view-in` plays every tab switch because each tab conditionally mounts a new `.view` element (no DOM recycling). This is intentional and gives the app a "departures board page turn" feel.
+- `button:active { transition: transform 60ms ease }` is deliberately short — active press should feel snappy, not floaty.
+- Scrollbar style on `html` (not `*`) — scopes to the main page scroll; inner horizontally-scrolling elements (countdown cards, upnext rail) get their own thin scrollbar automatically.
+- nth-child stagger for countdown/watchlist cards avoids JSX changes to `CountdownCard` and `WatchlistGrid` components — delays cap at 280ms / 210ms so late items don't lag visibly.
+- `now-blink` only animates the `::before` pseudo-element (the `NOW` text), not the line itself — keeps the line stable as a visual anchor while the label pulses life.
+- All existing `board-row-in` (Phase 4) and `completion-pulse` (Phase 6) animations untouched.
+
+**Acceptance criteria status:**
+- ✅ Tab view entrance animation on every switch
+- ✅ Toast slides up from below on appear
+- ✅ UpNextRail cards stagger slide-in from left
+- ✅ Countdown cards stagger fade-in within each group
+- ✅ Watchlist poster grid stagger fade-in
+- ✅ Library watch-items stagger fade-in
+- ✅ NOW label pulses on the Tonight board
+- ✅ Active tab has amber glow
+- ✅ Button press has snappy scale feedback
+- ✅ Watch-item hover shows amber border hint
+- ✅ Selection color (amber tint)
+- ✅ Thin dark scrollbar
+- ✅ All animations guarded by prefers-reduced-motion
+- ✅ TypeScript: clean

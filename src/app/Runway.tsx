@@ -1447,14 +1447,14 @@ function App() {
                   <h2>{watchStatusLabel(group.status)}</h2>
                   <span>{group.items.length}</span>
                 </div>
-                {group.items.map((item) => {
+                {group.items.map((item, itemIndex) => {
                   const watchStatus = getWatchStatus(item)
                   const isExpanded = detailItemId === item.id
                   const isShow = item.type !== 'film' && item.type !== 'sport'
                   const showDetail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
                   const progressPct = showDetail && isShow ? computeWatchProgress(item, showDetail) : 0
                   return (
-                    <div className={isExpanded ? 'watch-item-wrapper expanded' : 'watch-item-wrapper'} key={item.id}>
+                    <div className={isExpanded ? 'watch-item-wrapper expanded' : 'watch-item-wrapper'} key={item.id} style={{ '--item-index': itemIndex } as CSSProperties}>
                       <article className={[watchStatus === 'completed' ? 'watch-item done' : 'watch-item', pulsingItemId === item.id ? 'pulse' : ''].filter(Boolean).join(' ')}>
                         <button
                           className="check"
@@ -1918,8 +1918,8 @@ function UpNextRail({
 }) {
   return (
     <div className="upnext-rail">
-      {items.slice(0, 8).map((item) => (
-        <div key={item.id} className="upnext-card">
+      {items.slice(0, 8).map((item, index) => (
+        <div key={item.id} className="upnext-card" style={{ '--card-index': index } as CSSProperties}>
           <span className="upnext-episode">
             {item.type !== 'film' && item.type !== 'sport'
               ? `S${String(item.currentSeason ?? 1).padStart(2, '0')} E${String(item.currentEpisode ?? 0).padStart(2, '0')}`

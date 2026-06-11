@@ -54,6 +54,34 @@
   box-sizing: border-box;
 }
 
+::selection {
+  background: rgba(var(--accent-rgb), 0.22);
+  color: var(--text);
+}
+
+html {
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -104,6 +132,12 @@ p {
   text-align: center;
   font-weight: 650;
   backdrop-filter: blur(18px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .toast {
+    animation: toast-up 200ms ease-out both;
+  }
 }
 
 /* ── Login ──────────────────────────────────────────────────────────────── */
@@ -256,7 +290,8 @@ button:hover:not(:disabled) {
 }
 
 button:active {
-  transform: scale(0.99);
+  transform: scale(0.96);
+  transition: transform 60ms ease;
 }
 
 button:disabled {
@@ -606,7 +641,7 @@ button:disabled {
   border-color: transparent;
   background: var(--accent);
   color: var(--bg);
-  box-shadow: none;
+  box-shadow: 0 0 14px rgba(var(--accent-rgb), 0.3);
 }
 
 .tab.active:hover,
@@ -618,6 +653,12 @@ button:disabled {
 
 .view {
   padding: 14px 0 30px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .view {
+    animation: view-in 240ms ease-out both;
+  }
 }
 
 /* ── Tool row / filters ─────────────────────────────────────────────────── */
@@ -807,6 +848,86 @@ button:disabled {
     opacity: 1;
     transform: none;
   }
+}
+
+/* ── Phase 8 — Motion & polish ──────────────────────────────────────────── */
+
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes card-slide-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes toast-up {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes now-blink {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.3; }
+}
+
+/* Now-line label pulse */
+@media (prefers-reduced-motion: no-preference) {
+  .now-line::before {
+    animation: now-blink 2.4s ease-in-out infinite;
+  }
+}
+
+/* UpNextRail — staggered slide-in */
+@media (prefers-reduced-motion: no-preference) {
+  .upnext-card {
+    animation: card-slide-in 220ms ease-out both;
+    animation-delay: calc(var(--card-index, 0) * 50ms);
+  }
+}
+
+/* Countdown cards — staggered fade-in within each group */
+@media (prefers-reduced-motion: no-preference) {
+  .countdown-card { animation: view-in 220ms ease-out both; }
+  .countdown-cards > *:nth-child(2)  { animation-delay:  40ms; }
+  .countdown-cards > *:nth-child(3)  { animation-delay:  80ms; }
+  .countdown-cards > *:nth-child(4)  { animation-delay: 120ms; }
+  .countdown-cards > *:nth-child(5)  { animation-delay: 160ms; }
+  .countdown-cards > *:nth-child(6)  { animation-delay: 200ms; }
+  .countdown-cards > *:nth-child(7)  { animation-delay: 240ms; }
+  .countdown-cards > *:nth-child(n+8) { animation-delay: 280ms; }
+}
+
+/* Watchlist poster grid — staggered fade-in */
+@media (prefers-reduced-motion: no-preference) {
+  .watchlist-card { animation: view-in 200ms ease-out both; }
+  .watchlist-grid > *:nth-child(2)  { animation-delay:  30ms; }
+  .watchlist-grid > *:nth-child(3)  { animation-delay:  60ms; }
+  .watchlist-grid > *:nth-child(4)  { animation-delay:  90ms; }
+  .watchlist-grid > *:nth-child(5)  { animation-delay: 120ms; }
+  .watchlist-grid > *:nth-child(6)  { animation-delay: 150ms; }
+  .watchlist-grid > *:nth-child(7)  { animation-delay: 180ms; }
+  .watchlist-grid > *:nth-child(n+8) { animation-delay: 210ms; }
+}
+
+/* Watch-item list — staggered fade-in */
+@media (prefers-reduced-motion: no-preference) {
+  .watch-item-wrapper {
+    animation: view-in 180ms ease-out both;
+    animation-delay: calc(var(--item-index, 0) * 28ms);
+  }
+}
+
+/* Watch-item hover highlight */
+.watch-item-wrapper:not(.expanded) > .watch-item:hover {
+  border-color: rgba(var(--accent-rgb), 0.18);
+}
+
+/* Icon button active accent */
+.icon-button.active {
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.35);
 }
 
 .time {
