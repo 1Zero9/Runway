@@ -136,8 +136,7 @@ p {
 }
 
 .media-login-panel > p:not(.eyebrow):not(.notice),
-.hero-copy,
-.shared-list-hero > p:last-child {
+.hero-copy {
   color: var(--text-dim);
 }
 
@@ -1558,6 +1557,136 @@ button:disabled {
   border-color: rgba(var(--accent-rgb), 0.4);
 }
 
+/* ── Watch-item detail panel (Phase 6) ─────────────────────────────────── */
+
+.watch-item-wrapper {
+  display: grid;
+}
+
+.watch-item-wrapper.expanded > .watch-item {
+  border-radius: 14px 14px 0 0;
+  border-bottom-color: transparent;
+}
+
+.show-detail-panel {
+  padding: var(--space-3) var(--space-3) var(--space-3) 46px;
+  border: 1px solid var(--line);
+  border-top: none;
+  border-radius: 0 0 14px 14px;
+  background: var(--surface);
+}
+
+.show-detail-summary {
+  margin-bottom: var(--space-2);
+}
+
+.show-detail-summary .episode-label {
+  font-size: var(--fs-xs);
+  min-width: 0;
+  color: var(--text-dim);
+}
+
+.episode-grid {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.season-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.season-row-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  width: 32px;
+}
+
+.season-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.season-mark-btn {
+  width: 22px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface-raised);
+  color: var(--text-dim);
+}
+
+.season-mark-btn:hover {
+  border-color: rgba(var(--accent-rgb), 0.4);
+  color: var(--accent);
+}
+
+.episode-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.ep-cell {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-raised);
+}
+
+.ep-cell.watched {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.ep-cell:hover {
+  border-color: rgba(var(--accent-rgb), 0.6);
+}
+
+.ep-cell.watched:hover {
+  opacity: 0.7;
+}
+
+.watch-progress-bar {
+  height: 2px;
+  margin-top: var(--space-2);
+  background: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.watch-progress-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--pct, 0%);
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 500ms ease;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .watch-item.pulse {
+    animation: completion-pulse 700ms ease-out both;
+  }
+}
+
+@keyframes completion-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0.5); }
+  60% { box-shadow: 0 0 0 10px rgba(var(--accent-rgb), 0); }
+  100% { box-shadow: none; }
+}
+
 /* ── Settings ───────────────────────────────────────────────────────────── */
 
 .settings-field {
@@ -1951,22 +2080,66 @@ button:disabled {
 }
 
 .shared-list-page {
-  padding: 28px 18px;
+  padding: 28px 18px 48px;
 }
 
-.shared-list-hero,
-.shared-list-grid {
+.shared-list-content {
   width: min(980px, 100%);
   margin: 0 auto;
+  display: grid;
+  gap: var(--space-5);
 }
 
-.shared-list-hero {
-  padding: 26px 0 var(--space-5);
+/* ── Share collage header ───────────────────────────────────────────────── */
+
+.share-collage {
+  position: relative;
+  height: 260px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--surface);
 }
 
-.shared-list-hero h1 {
-  margin-top: var(--space-1);
+.share-collage-posters {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  gap: 3px;
+  align-items: stretch;
 }
+
+.share-collage-posters img {
+  flex: 0 0 auto;
+  width: auto !important;
+  height: 100% !important;
+  object-fit: cover;
+  opacity: 0.8;
+}
+
+.share-collage-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, var(--bg) 0%, var(--bg) 24%, rgba(11, 13, 16, 0) 68%),
+    linear-gradient(180deg, rgba(11, 13, 16, 0) 40%, rgba(11, 13, 16, 0.8) 100%);
+}
+
+.share-collage-text {
+  position: absolute;
+  inset: auto auto var(--space-5) var(--space-5);
+}
+
+.share-collage-text h1 {
+  margin: var(--space-1) 0 3px;
+  font-size: clamp(var(--fs-xl), 4vw, var(--fs-3xl));
+}
+
+.share-collage-count {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+/* ── Share card grid ────────────────────────────────────────────────────── */
 
 .shared-list-grid {
   display: grid;
@@ -1996,6 +2169,40 @@ button:disabled {
 .shared-list-card strong {
   color: var(--accent);
   font-size: var(--fs-base);
+}
+
+/* ── Where-to-watch badges ──────────────────────────────────────────────── */
+
+.share-providers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.share-provider-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px 3px 4px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface-raised);
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  font-weight: 650;
+}
+
+/* ── Share footer ───────────────────────────────────────────────────────── */
+
+.share-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
 }
 
 /* ── Utilities ──────────────────────────────────────────────────────────── */
@@ -2153,9 +2360,16 @@ button:disabled {
   }
 
   .status-rail,
-  .shared-list-grid,
+  .shared-list-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .roadmap-lanes {
     grid-template-columns: 1fr;
+  }
+
+  .share-collage {
+    height: 200px;
   }
 
   .compact-action {

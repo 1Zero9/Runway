@@ -206,13 +206,61 @@ Read this at the start of every session before touching any CSS or component cod
 - ✅ Watchlist grid with hover-reveal actions
 - ✅ TypeScript: clean
 
-## Phase 6 — Library
+## Phase 6 — Library: progress & episode grid ✅
 
-Not started.
+**What changed:**
 
-## Phase 7 — Share pages
+- **`src/app/api/media-guide/show-details/route.ts`** — new GET route. Auth-guarded. Fetches TMDb `/tv/{id}` and returns `{ id, name, numberOfEpisodes, episodeRunTime, seasons: [{ seasonNumber, episodeCount }] }` (specials with `season_number === 0` excluded). Cached 1h via `next: { revalidate: 3600 }`.
+- **`src/app/Runway.tsx`** — Added `TmdbShowDetail` type. Added `detailItemId`, `showDetailCache: Record<number, TmdbShowDetail>`, `pulsingItemId` state. Added `openShowDetail` (toggle panel, lazy-fetch on open), `handleEpisodeUpdate` (wraps `updateEpisode`, fires pulse when final episode reached). Updated `mediaToWatchingItem` to set `tmdbId: item.id` so Track-from-streaming populates the TMDb ID. Added `computeWatchProgress` helper (position-based, not watchedCount-based). Added `ShowDetailPanel` component. Library watch-item mapping now uses `.watch-item-wrapper / .watch-item-wrapper.expanded` wrapper divs; shows get a ChevronRight expand button; progress bar appears when TMDb data is loaded; detail panel slots in below the article with zero top-border.
+- **`src/app/runway.css`** — Added `.watch-item-wrapper`, `.watch-item-wrapper.expanded > .watch-item`, `.show-detail-panel`, `.show-detail-summary`, `.episode-grid`, `.season-row`, `.season-row-head`, `.season-label`, `.season-mark-btn`, `.episode-cells`, `.ep-cell`, `.ep-cell.watched`, `.watch-progress-bar`, `@keyframes completion-pulse`, `.watch-item.pulse`.
 
-Not started.
+**ShowDetailPanel:**
+- Shows when `detailItemId === item.id`
+- Summary line: `14/24 EPISODES · ~7H LEFT` in mono, dim colour
+- Per-season rows: `S01` label + ✓ (mark season) + flex-wrap of episode cells
+- Episode cells: 18×18px squares — amber fill when watched, line-border when not
+- Clicking a cell at the current position (last watched) unmarks it; clicking any other cell sets position there
+- "Mark season" → `updateEpisode(item, season, episodeCount)`
+
+**Decisions:**
+- `showDetailCache` is `Record<number, TmdbShowDetail>` (plain object, not Map) for React reactivity
+- Progress bar uses position-based watched count (currentSeason/currentEpisode), not `watchedCount` increment counter — both coexist; `watchedCount` continues to track manual "Ep watched" button presses; the bar tracks actual position
+- Completion pulse: `setPulsingItemId` on last-season-last-episode detection; clears after 700ms; CSS `@keyframes completion-pulse` is a box-shadow grow-and-fade
+- TMDb data loads lazily on first panel open; cached in component state for the session
+
+**Acceptance criteria status:**
+- ✅ API route returns seasons + episode counts + runtime
+- ✅ Episode grid: amber cells for watched, line cells for unwatched
+- ✅ Progress bar (2px amber) visible after panel opened once
+- ✅ "Mark season" per season row
+- ✅ `N/TOTAL EPISODES · ~NhH LEFT` summary in mono
+- ✅ Completion pulse animation on last episode
+- ✅ `trackFromStreaming` now populates `tmdbId`
+- ✅ TypeScript: clean
+
+## Phase 7 — Share pages ✅
+
+**What changed:**
+
+- **`src/app/share/[slug]/page.tsx`** — Full redesign. Added `shared-list-content` wrapper (centred grid). Replaced `.shared-list-hero` with `.share-collage` collage header: posters right-aligned inside a 260px container with two-direction gradient overlay (dark from left + dark from bottom) and text floating bottom-left. Added `fetchWatchProviders` server helper calling TMDb `/movie/{id}/watch/providers` or `/tv/{id}/watch/providers` for IE region flatrate only. `Promise.all` fetches providers for the first 12 items. Provider badges appear below the overview in each card. Added `.share-footer` with amber "Runway" wordmark. `tmdb_id` and `media_type` now included in the SQL query.
+- **`src/app/share/[slug]/opengraph-image.tsx`** — new file. Next.js `ImageResponse` at 1200×630. Dark gradient background. Up to 3 posters in a fanned layout (rotated). List name (large), item count, "Runway" wordmark in amber. Falls back gracefully if slug not found.
+- **`src/app/runway.css`** — Replaced `.shared-list-hero` block with `.share-collage`, `.share-collage-posters`, `.share-collage-overlay`, `.share-collage-text`, `.share-collage-count`. Added `.shared-list-content`, `.share-providers`, `.share-provider-badge`, `.share-footer`. Removed orphaned `.shared-list-hero > p:last-child` colour rule. Mobile breakpoint: grid changed from 1-col to 2-col for share grid; collage height reduced to 200px.
+
+**Decisions:**
+- Provider fetch is fire-and-forget per item (returns `[]` on failure) — share pages remain functional without TMDb API key
+- Only `flatrate` providers shown (no rent/buy clutter); capped at 3 per title
+- OG image uses `runtime = 'nodejs'` (not edge) because `getMediaGuideSql` uses the Neon serverless driver which requires Node.js
+- Collage uses `position: absolute` posters (right-aligned) so the text sits cleanly over the left gradient without needing to know poster count
+- `shared-list-card img` keeps `aspect-ratio: 2/3` via CSS — `next/image` with `width={342} height={513}` preserves ratio naturally
+
+**Acceptance criteria status:**
+- ✅ Collage header with up to 5 posters + dark gradient overlay
+- ✅ List title + count over collage
+- ✅ Where-to-watch IE badges per card (flatrate only, up to 3)
+- ✅ Dynamic OG image at `/share/{slug}/opengraph-image`
+- ✅ Footer with amber Runway wordmark
+- ✅ Mobile: 2-col grid, shorter collage
+- ✅ TypeScript: clean
 
 ## Phase 8 — Motion & final polish
 

@@ -105,6 +105,14 @@ type WatchingItem = {
   tmdbId?: number | null
 }
 
+type TmdbShowDetail = {
+  id: number
+  name: string
+  numberOfEpisodes: number
+  episodeRunTime: number[]
+  seasons: { seasonNumber: number; episodeCount: number }[]
+}
+
 type RecommendationList = {
   id: string
   name: string
@@ -245,6 +253,9 @@ function App() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [installState, setInstallState] = useState<'available' | 'installed' | 'manual'>('manual')
   const [toast, setToast] = useState('')
+  const [detailItemId, setDetailItemId] = useState<string | null>(null)
+  const [showDetailCache, setShowDetailCache] = useState<Record<number, TmdbShowDetail>>({})
+  const [pulsingItemId, setPulsingItemId] = useState<string | null>(null)
   const refreshPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nowLineRef = useRef<HTMLDivElement>(null)
 
@@ -940,6 +951,35 @@ function App() {
     window.location.href = '/login'
   }
 
+  async function openShowDetail(item: WatchingItem) {
+    if (detailItemId === item.id) {
+      setDetailItemId(null)
+      return
+    }
+    setDetailItemId(item.id)
+    if (item.tmdbId && !showDetailCache[item.tmdbId]) {
+      try {
+        const res = await fetch(`/api/media-guide/show-details?id=${item.tmdbId}`)
+        if (res.ok) {
+          const data = (await res.json()) as TmdbShowDetail
+          setShowDetailCache((cache) => ({ ...cache, [data.id]: data }))
+        }
+      } catch {}
+    }
+  }
+
+  async function handleEpisodeUpdate(item: WatchingItem, season: number, episode: number) {
+    const detail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
+    if (detail) {
+      const lastSeason = detail.seasons[detail.seasons.length - 1]
+      if (lastSeason && season >= lastSeason.seasonNumber && episode >= lastSeason.episodeCount) {
+        setPulsingItemId(item.id)
+        setTimeout(() => setPulsingItemId((id) => (id === item.id ? null : id)), 700)
+      }
+    }
+    await updateEpisode(item, season, episode)
+  }
+
   return (
     <main className="app-shell">
       {toast && <div className="toast">{toast}</div>}
@@ -1409,106 +1449,132 @@ function App() {
                 </div>
                 {group.items.map((item) => {
                   const watchStatus = getWatchStatus(item)
+                  const isExpanded = detailItemId === item.id
+                  const isShow = item.type !== 'film' && item.type !== 'sport'
+                  const showDetail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
+                  const progressPct = showDetail && isShow ? computeWatchProgress(item, showDetail) : 0
                   return (
-                    <article className={watchStatus === 'completed' ? 'watch-item done' : 'watch-item'} key={item.id}>
-                      <button
-                        className="check"
-                        type="button"
-                        aria-label={`Mark ${item.title} completed`}
-                        onClick={() => toggleWatching(item)}
-                      >
-                        {watchStatus === 'completed' && <Check size={16} />}
-                      </button>
-                      <div>
-                        <h2>{item.title}</h2>
-                        <p>
-                          {item.service}
-                          <span className="type-badge">{watchTypeLabel(item.type)}</span>
-                        </p>
-                        <div className="watch-status-row">
-                          <select
-                            aria-label={`${item.title} watch status`}
-                            value={watchStatus}
-                            onChange={(event) => updateWatchingStatus(item, event.target.value as WatchStatus)}
-                          >
-                            <option value="planned">Plan to watch</option>
-                            <option value="watching">Watching</option>
-                            <option value="waiting">Waiting for next series</option>
-                            <option value="completed">Completed</option>
-                            <option value="dropped">Dropped</option>
-                          </select>
-                          <small>{item.cadence}</small>
-                        </div>
-                        {item.type !== 'film' && item.type !== 'sport' && (
-                          <div className="episode-tracker">
-                            <span className="episode-label">
-                              S{String(item.currentSeason ?? 1).padStart(2, '0')} E{String(item.currentEpisode ?? 0).padStart(2, '0')}
-                            </span>
-                            <button
-                              type="button"
-                              className="ep-btn"
-                              aria-label="Previous episode"
-                              onClick={() => {
-                                const ep = (item.currentEpisode ?? 0) - 1
-                                if (ep < 0) {
-                                  const s = Math.max(1, (item.currentSeason ?? 1) - 1)
-                                  updateEpisode(item, s, 0)
-                                } else {
-                                  updateEpisode(item, item.currentSeason ?? 1, ep)
-                                }
-                              }}
-                            >−</button>
-                            <button
-                              type="button"
-                              className="ep-btn"
-                              aria-label="Next episode"
-                              onClick={() => updateEpisode(item, item.currentSeason ?? 1, (item.currentEpisode ?? 0) + 1)}
-                            >+</button>
-                            <button
-                              type="button"
-                              className="ep-btn"
-                              aria-label="Next season"
-                              onClick={() => updateEpisode(item, (item.currentSeason ?? 1) + 1, 1)}
-                            >S+</button>
+                    <div className={isExpanded ? 'watch-item-wrapper expanded' : 'watch-item-wrapper'} key={item.id}>
+                      <article className={[watchStatus === 'completed' ? 'watch-item done' : 'watch-item', pulsingItemId === item.id ? 'pulse' : ''].filter(Boolean).join(' ')}>
+                        <button
+                          className="check"
+                          type="button"
+                          aria-label={`Mark ${item.title} completed`}
+                          onClick={() => toggleWatching(item)}
+                        >
+                          {watchStatus === 'completed' && <Check size={16} />}
+                        </button>
+                        <div>
+                          <h2>{item.title}</h2>
+                          <p>
+                            {item.service}
+                            <span className="type-badge">{watchTypeLabel(item.type)}</span>
+                          </p>
+                          <div className="watch-status-row">
+                            <select
+                              aria-label={`${item.title} watch status`}
+                              value={watchStatus}
+                              onChange={(event) => updateWatchingStatus(item, event.target.value as WatchStatus)}
+                            >
+                              <option value="planned">Plan to watch</option>
+                              <option value="watching">Watching</option>
+                              <option value="waiting">Waiting for next series</option>
+                              <option value="completed">Completed</option>
+                              <option value="dropped">Dropped</option>
+                            </select>
+                            <small>{item.cadence}</small>
                           </div>
-                        )}
-                        <div className="watch-feedback-row">
-                          <button type="button" onClick={() => markWatched(item)}>
-                            <Check size={14} />
-                            {item.type === 'film' ? 'Watched' : 'Ep watched'}
-                          </button>
-                          <div className="star-rating" aria-label={`${item.title} rating`}>
-                            {[1, 2, 3, 4, 5].map((rating) => (
+                          {isShow && (
+                            <div className="episode-tracker">
+                              <span className="episode-label">
+                                S{String(item.currentSeason ?? 1).padStart(2, '0')} E{String(item.currentEpisode ?? 0).padStart(2, '0')}
+                              </span>
                               <button
-                                aria-label={`Rate ${item.title} ${rating} stars`}
-                                className={(item.userRating ?? 0) >= rating ? 'active' : ''}
-                                key={rating}
                                 type="button"
-                                onClick={() => updateWatchingRating(item, rating)}
-                              >
-                                <Star size={14} fill="currentColor" />
-                              </button>
-                            ))}
+                                className="ep-btn"
+                                aria-label="Previous episode"
+                                onClick={() => {
+                                  const ep = (item.currentEpisode ?? 0) - 1
+                                  if (ep < 0) {
+                                    const s = Math.max(1, (item.currentSeason ?? 1) - 1)
+                                    updateEpisode(item, s, 0)
+                                  } else {
+                                    updateEpisode(item, item.currentSeason ?? 1, ep)
+                                  }
+                                }}
+                              >−</button>
+                              <button
+                                type="button"
+                                className="ep-btn"
+                                aria-label="Next episode"
+                                onClick={() => updateEpisode(item, item.currentSeason ?? 1, (item.currentEpisode ?? 0) + 1)}
+                              >+</button>
+                              <button
+                                type="button"
+                                className="ep-btn"
+                                aria-label="Next season"
+                                onClick={() => updateEpisode(item, (item.currentSeason ?? 1) + 1, 1)}
+                              >S+</button>
+                            </div>
+                          )}
+                          <div className="watch-feedback-row">
+                            <button type="button" onClick={() => markWatched(item)}>
+                              <Check size={14} />
+                              {item.type === 'film' ? 'Watched' : 'Ep watched'}
+                            </button>
+                            <div className="star-rating" aria-label={`${item.title} rating`}>
+                              {[1, 2, 3, 4, 5].map((rating) => (
+                                <button
+                                  aria-label={`Rate ${item.title} ${rating} stars`}
+                                  className={(item.userRating ?? 0) >= rating ? 'active' : ''}
+                                  key={rating}
+                                  type="button"
+                                  onClick={() => updateWatchingRating(item, rating)}
+                                >
+                                  <Star size={14} fill="currentColor" />
+                                </button>
+                              ))}
+                            </div>
+                            {(item.watchedCount ?? 0) > 0 && (
+                              <small>
+                                {item.type === 'film' ? 'Watched' : `${item.watchedCount} ep${item.watchedCount === 1 ? '' : 's'} watched`}
+                                {item.lastWatchedAt ? ` — last ${formatShortDate(item.lastWatchedAt)}` : ''}
+                              </small>
+                            )}
                           </div>
-                          {(item.watchedCount ?? 0) > 0 && (
-                            <small>
-                              {item.type === 'film' ? 'Watched' : `${item.watchedCount} ep${item.watchedCount === 1 ? '' : 's'} watched`}
-                              {item.lastWatchedAt ? ` — last ${formatShortDate(item.lastWatchedAt)}` : ''}
-                            </small>
+                          {item.notes && <span>{item.notes}</span>}
+                          {isShow && progressPct > 0 && (
+                            <div className="watch-progress-bar" style={{ '--pct': `${progressPct}%` } as CSSProperties} />
                           )}
                         </div>
-                        {item.notes && <span>{item.notes}</span>}
-                      </div>
-                      <div className="date-pill">{formatShortDate(item.nextEpisode)}</div>
-                      <button
-                        className="icon-button quiet"
-                        type="button"
-                        aria-label={`Remove ${item.title}`}
-                        onClick={() => removeWatching(item.id)}
-                      >
-                        <Trash2 size={17} />
-                      </button>
-                    </article>
+                        <div className="date-pill">{formatShortDate(item.nextEpisode)}</div>
+                        {isShow && (
+                          <button
+                            className={isExpanded ? 'icon-button quiet active' : 'icon-button quiet'}
+                            type="button"
+                            aria-label={isExpanded ? 'Close episode grid' : 'Open episode grid'}
+                            onClick={() => openShowDetail(item)}
+                          >
+                            <ChevronRight size={17} style={isExpanded ? { transform: 'rotate(90deg)', transition: 'transform 180ms ease' } : { transition: 'transform 180ms ease' }} />
+                          </button>
+                        )}
+                        <button
+                          className="icon-button quiet"
+                          type="button"
+                          aria-label={`Remove ${item.title}`}
+                          onClick={() => removeWatching(item.id)}
+                        >
+                          <Trash2 size={17} />
+                        </button>
+                      </article>
+                      {isExpanded && (
+                        <ShowDetailPanel
+                          item={item}
+                          showDetail={showDetail}
+                          onUpdateEpisode={handleEpisodeUpdate}
+                        />
+                      )}
+                    </div>
                   )
                 })}
               </section>
@@ -2181,6 +2247,82 @@ function RecommendationListItem({
   )
 }
 
+function ShowDetailPanel({
+  item,
+  showDetail,
+  onUpdateEpisode,
+}: {
+  item: WatchingItem
+  showDetail: TmdbShowDetail | undefined
+  onUpdateEpisode: (item: WatchingItem, season: number, episode: number) => void
+}) {
+  if (!showDetail) {
+    return (
+      <div className="show-detail-panel">
+        <p className="muted-copy">
+          {item.tmdbId ? 'Loading episode data…' : 'Track from the Runway view to enable the episode grid.'}
+        </p>
+      </div>
+    )
+  }
+
+  const currentSeason = item.currentSeason ?? 1
+  const currentEpisode = item.currentEpisode ?? 0
+  const avgRuntime = showDetail.episodeRunTime.length ? showDetail.episodeRunTime[0] : 40
+  const watched = computeWatchProgress(item, showDetail)
+  const watchedCount = Math.round((watched / 100) * showDetail.numberOfEpisodes)
+  const remainingEps = Math.max(0, showDetail.numberOfEpisodes - watchedCount)
+  const remainingHours = Math.round((remainingEps * avgRuntime) / 60)
+
+  return (
+    <div className="show-detail-panel">
+      <div className="show-detail-summary">
+        <span className="episode-label">
+          {watchedCount}/{showDetail.numberOfEpisodes} EPISODES
+          {remainingHours > 0 ? ` · ~${remainingHours}H LEFT` : ''}
+        </span>
+      </div>
+      <div className="episode-grid">
+        {showDetail.seasons.map((s) => (
+          <div className="season-row" key={s.seasonNumber}>
+            <div className="season-row-head">
+              <span className="season-label">S{String(s.seasonNumber).padStart(2, '0')}</span>
+              <button
+                type="button"
+                className="season-mark-btn"
+                aria-label={`Mark all of season ${s.seasonNumber} watched`}
+                onClick={() => onUpdateEpisode(item, s.seasonNumber, s.episodeCount)}
+              >
+                <Check size={11} />
+              </button>
+            </div>
+            <div className="episode-cells">
+              {Array.from({ length: s.episodeCount }, (_, i) => {
+                const epNum = i + 1
+                const isWatched =
+                  s.seasonNumber < currentSeason ||
+                  (s.seasonNumber === currentSeason && epNum <= currentEpisode)
+                const isCurrent = s.seasonNumber === currentSeason && epNum === currentEpisode
+                return (
+                  <button
+                    key={epNum}
+                    type="button"
+                    className={isWatched ? 'ep-cell watched' : 'ep-cell'}
+                    aria-label={`S${s.seasonNumber} E${epNum}${isWatched ? ' (watched)' : ''}`}
+                    onClick={() =>
+                      onUpdateEpisode(item, s.seasonNumber, isCurrent ? epNum - 1 : epNum)
+                    }
+                  />
+                )
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function EmptyState({ title, detail }: { title: string; detail?: string }) {
   return (
     <div className="empty">
@@ -2229,6 +2371,7 @@ function mediaToWatchingItem(item: TmdbItem): WatchingItem {
     notes: item.overview.slice(0, 120),
     type: item.media_type === 'movie' ? 'film' : 'show',
     done: false,
+    tmdbId: item.id,
   }
 }
 
@@ -2390,6 +2533,21 @@ function makePosterBlur(colour: string | null | undefined): string {
   const bg = colour ?? '#14171C'
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="15"><rect width="10" height="15" fill="${bg}"/></svg>`
   return `data:image/svg+xml;base64,${btoa(svg)}`
+}
+
+function computeWatchProgress(item: WatchingItem, detail: TmdbShowDetail): number {
+  if (!detail.numberOfEpisodes) return 0
+  let watched = 0
+  const currentSeason = item.currentSeason ?? 1
+  const currentEpisode = item.currentEpisode ?? 0
+  for (const s of detail.seasons) {
+    if (s.seasonNumber < currentSeason) {
+      watched += s.episodeCount
+    } else if (s.seasonNumber === currentSeason) {
+      watched += Math.min(currentEpisode, s.episodeCount)
+    }
+  }
+  return Math.min(100, Math.round((100 * watched) / detail.numberOfEpisodes))
 }
 
 export default App
