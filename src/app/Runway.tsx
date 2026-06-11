@@ -6,7 +6,6 @@ import {
   ChevronRight,
   Clapperboard,
   Copy,
-  Clock3,
   Download,
   Eye,
   Filter,
@@ -25,7 +24,7 @@ import {
   ThumbsDown,
 } from 'lucide-react'
 import Image from 'next/image'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import './runway.css'
 
@@ -247,6 +246,7 @@ function App() {
   const [installState, setInstallState] = useState<'available' | 'installed' | 'manual'>('manual')
   const [toast, setToast] = useState('')
   const refreshPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const nowLineRef = useRef<HTMLDivElement>(null)
 
   const inProgressShows = watching
     .filter((i) => getWatchStatus(i) === 'watching')
@@ -448,6 +448,14 @@ function App() {
     const timer = window.setInterval(() => setNow(new Date()), 1000 * 60)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (tab !== 'tonight') return
+    const timer = window.setTimeout(() => {
+      nowLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 180)
+    return () => window.clearTimeout(timer)
+  }, [filteredTvItems.length, tab])
 
   useEffect(() => {
     let ignore = false
@@ -1023,51 +1031,64 @@ function App() {
             </div>
           </section>
           {tvError && <p className="notice error">{tvError}</p>}
-          <div className="list">
+          <div className="board-list">
             {tvLoading && <SkeletonRows />}
-            {!tvLoading &&
-              filteredTvItems.map((item) => (
-                <article className="programme" key={item.id}>
-                  <div className="time">
-                    <Clock3 size={16} />
-                    <strong>{item.airtime || formatTime(item.airstamp)}</strong>
-                  </div>
-                  {item.show.image?.medium ? (
-                    <img src={item.show.image.medium} alt="" />
-                  ) : (
-                    <div className="poster-fallback">
-                      <Tv size={22} />
-                    </div>
-                  )}
-                  <div className="programme-copy">
-                    <span>{item.show.network?.name ?? item.show.webChannel?.name ?? 'Ireland TV'}</span>
-                    <h2>{item.show.name}</h2>
-                    <p>
-                      {item.name}
-                      {item.season ? ` · S${item.season}${item.number ? ` E${item.number}` : ''}` : ''}
-                    </p>
-                  </div>
-                  <button
-                    className="icon-button quiet"
-                    type="button"
-                    aria-label={`Track ${item.show.name}`}
-                    onClick={() =>
-                      persistWatchingItem({
-                        id: crypto.randomUUID(),
-                        title: item.show.name,
-                        service: item.show.network?.name ?? item.show.webChannel?.name ?? 'TV',
-                        nextEpisode: selectedDate,
-                        cadence: 'Weekly',
-                        notes: item.name,
-                        type: 'show',
-                        done: false,
-                      })
-                    }
-                  >
-                    <Plus size={18} />
-                  </button>
-                </article>
-              ))}
+            {!tvLoading && (() => {
+              const nowMs = now.getTime()
+              let nowLineInserted = false
+              return filteredTvItems.map((item, index) => {
+                const startMs = Date.parse(item.airstamp)
+                const isTracked = trackedTitleSet.has(normalizeTitle(item.show.name))
+                const timeStatus = getProgrammeStatus(item, nowMs)
+                const showNowLine = !nowLineInserted && startMs > nowMs
+                if (showNowLine) nowLineInserted = true
+                return (
+                  <Fragment key={item.id}>
+                    {showNowLine && <div className="now-line" ref={nowLineRef} />}
+                    <article
+                      className={isTracked ? 'programme programme--tracked' : 'programme'}
+                      style={{ '--row-index': index } as CSSProperties}
+                    >
+                      <div className="time">
+                        <strong>{item.airtime || formatTime(item.airstamp)}</strong>
+                      </div>
+                      <div className="programme-copy">
+                        <span>{item.show.network?.name ?? item.show.webChannel?.name ?? 'Ireland TV'}</span>
+                        <h2>{item.show.name}</h2>
+                        <p>
+                          {item.name}
+                          {item.season ? ` · S${item.season}${item.number ? ` E${item.number}` : ''}` : ''}
+                        </p>
+                      </div>
+                      <div className="programme-chips">
+                        {timeStatus === 'on-now' && <span className="status-chip chip-on-now">On now</span>}
+                        {timeStatus === 'next' && <span className="status-chip chip-next">Next</span>}
+                        {isTracked && <span className="status-chip chip-tracked">Tracked</span>}
+                      </div>
+                      <button
+                        className="icon-button quiet"
+                        type="button"
+                        aria-label={`Track ${item.show.name}`}
+                        onClick={() =>
+                          persistWatchingItem({
+                            id: crypto.randomUUID(),
+                            title: item.show.name,
+                            service: item.show.network?.name ?? item.show.webChannel?.name ?? 'TV',
+                            nextEpisode: selectedDate,
+                            cadence: 'Weekly',
+                            notes: item.name,
+                            type: 'show',
+                            done: false,
+                          })
+                        }
+                      >
+                        <Plus size={18} />
+                      </button>
+                    </article>
+                  </Fragment>
+                )
+              })
+            })()}
             {!tvLoading && filteredTvItems.length === 0 && (
               <EmptyState
                 title={listingTimeMode === 'from_now' ? 'No more listings in this view' : 'No Irish EPG listings found today'}
@@ -2105,6 +2126,14 @@ function filterDiscoveryItems(
 
 function getProgrammeChannelId(item: TvMazeEpisode) {
   return String(item.show.id)
+}
+
+function getProgrammeStatus(item: TvMazeEpisode, nowMs: number): 'on-now' | 'next' | 'later' {
+  const start = Date.parse(item.airstamp)
+  const end = start + (item.runtime ?? 60) * 60 * 1000
+  if (nowMs >= start && nowMs < end) return 'on-now'
+  if (start > nowMs && start - nowMs <= 30 * 60 * 1000) return 'next'
+  return 'later'
 }
 
 function isSportProgramme(item: TvMazeEpisode) {

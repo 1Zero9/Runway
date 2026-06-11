@@ -122,9 +122,48 @@ Read this at the start of every session before touching any CSS or component cod
 - ✅ Mobile bottom nav: 3 columns (was 5)
 - ✅ `UI-NOTES.md` updated
 
-## Phase 4 — Tonight board
+## Phase 4 — Tonight board ✅
 
-Not started.
+**What changed:**
+
+- **`src/app/Runway.tsx`** — Board row redesign, `getProgrammeStatus`, `nowLineRef`, auto-scroll, row animation, `Fragment` import. `Clock3` lucide import removed.
+- **`src/app/runway.css`** — Added `.board-list`, redesigned `.programme` as grid, `.programme--tracked`, `.programme-chips`, `.status-chip` family, `.now-line`, `@keyframes board-row-in` with `prefers-reduced-motion` guard.
+
+**Programme card → departures board row:**
+- `display: grid; grid-template-columns: 62px 1fr auto 34px` — time | programme copy | chips | track button
+- Show images removed (tabular board needs no thumbnails)
+- `border-radius: var(--radius-sm)` (6px, was 14px)
+- `.board-list` wrapper uses `gap: 3px` (was 12px) for tighter rows
+
+**Status chips (mono, uppercase, 11px):**
+- `ON NOW` — green (`--positive`) with green-tinted border, when `nowMs >= startMs && nowMs < endMs`
+- `NEXT` — text-dim with `--line` border, when programme starts within 30 minutes
+- `TRACKED` — amber (`--accent`) with amber-tinted border, when `normalizeTitle(show.name)` matches a watched item title. Tracked rows also get `box-shadow: inset 3px 0 0 var(--accent)` + 4% amber background.
+- `LATER` — no chip (default quiet state)
+- ON NOW + TRACKED can both appear on the same row (e.g. a tracked show that's currently airing)
+
+**Now line:**
+- `<div className="now-line" ref={nowLineRef}>` inserted before the first programme whose `airstamp > now`
+- Thin 1px amber line with a mono `NOW` label at the right
+- Auto-scrolls to it with `behavior: 'smooth', block: 'center'` 180ms after `filteredTvItems` loads
+
+**Row cascade animation:**
+- `@keyframes board-row-in`: opacity 0→1, translateY 5px→0, 180ms ease-out
+- Delay: `calc(var(--row-index, 0) * 18ms)` via inline `--row-index` CSS property
+- Wrapped in `@media (prefers-reduced-motion: no-preference)` — reduced-motion users see no animation
+
+**Decisions:**
+- TRACKED priority: shown alongside time chips (not replacing them) so the user sees both urgency and tracking state
+- Now line uses `right: 0` label (not left) to avoid collision with the amber inset border on tracked rows
+- `runtime ?? 60` fallback — EPG items sometimes omit runtime; 60 min is a safe default for the ON NOW window
+- Animation cap: 18ms × ~80 rows ≈ 1.44s max delay. Rows appearing ~4 seconds in get `animation-fill-mode: both` so they start hidden and complete in place
+
+**Acceptance criteria status:**
+- ✅ Board legible at 375px — `1fr` + ellipsis on show title handles narrow viewports
+- ✅ Tracked shows visible immediately: amber inset border + TRACKED chip
+- ✅ Reduced-motion: no animation
+- ✅ Auto-scroll to NOW on data load
+- ✅ TypeScript: clean
 
 ## Phase 5 — Runway view
 
