@@ -10,6 +10,38 @@ RUNWAY-BRIEF.md supersedes all prior UI work. Light mode only, red accent `#C236
 
 ---
 
+## Phase 2 — Data model: watch history as the engine ✅
+
+**What changed:**
+
+**New pure functions (fully unit-tested):**
+- `src/lib/next-episode.ts` — `deriveNextEpisode(episodes, watchedIds)` and `deriveMinutesRemaining(episodes, watchedIds)`. Season 0 specials excluded by design. 11 unit tests covering: default next ep, all-watched null, specials exclusion, skip-watched, season advance, unsorted input, empty list, minutes-remaining sum, and null-runtime handling.
+
+**New schema (5 tables — additive, no existing tables modified):**
+- `runway_shows` — tmdb_id, title, poster/backdrop paths, dominant_colour, status, next_air_date. Unique on (user_id, tmdb_id).
+- `runway_show_providers` — show_id FK, provider_name, is_primary, leaving_on (nullable). Unique on (show_id, provider_name).
+- `runway_episodes` — show_id FK, season, episode, title, air_date, runtime. Unique on (show_id, season, episode). Upsert-safe for re-sync.
+- `runway_watch_events` — episode_id FK, user_id, watched_at, source ('tap'|'bulk'|'reconcile'). Append-only; no unique constraint (rewatches allowed).
+- `runway_movies` — tmdb_id, title, artwork, ie_release_date, watched_at, watchlisted_at.
+
+All tables get `user_id` defaulting to 'steve' via `RUNWAY_USER_ID` constant.
+
+**New API routes:**
+- `GET/POST/DELETE /api/media-guide/shows` — track/list/remove shows. POST fetches TMDb `/tv/{id}` + syncs all season episodes via parallel `/tv/{id}/season/{n}` calls (non-blocking background sync, errors suppressed per-season).
+- `POST /api/media-guide/watch-events` — log single tap (`mode:'tap', episodeId`) or bulk range (`mode:'bulk', showId, targetSeason, targetEpisode`). Bulk write skips already-watched episodes.
+- `DELETE /api/media-guide/watch-events?episodeId=...` — removes most recent watch event (unlog).
+- `GET/PATCH/DELETE /api/media-guide/show-providers` — set/update/remove provider + leaving_on date. PATCH demotes other providers when `isPrimary:true`.
+- `GET /api/media-guide/dashboard` — single CTE aggregated query with CTEs: `watched_eps`, `show_progress`, `next_unwatched`, `primary_provider`. Returns watched_count, total_episodes, minutes_remaining, last_watched_at, next episode fields, provider, days_until_leaving, is_caught_up. No N+1.
+
+**Existing API routes:** untouched. `media_watchlist` and `media_recommendation_*` tables unchanged.
+
+**Deferrals:**
+- `has_unwatched_new_season` derived flag — deferred to Phase 6 suggestions engine where it's first consumed.
+- Movie watchlist UI — deferred to Phase 5.
+- Episode sync cron job — deferred to Phase 7/8.
+
+---
+
 ## Phase 1 — Light theme tokens & type ✅
 
 **What changed:**
