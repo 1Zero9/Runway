@@ -141,7 +141,7 @@ const defaultProviders: Provider[] = [
   { id: 0, label: 'Paramount+', match: ['Paramount Plus', 'Paramount+'], enabled: true },
 ]
 
-const appVersion = '0.1.4'
+const appVersion = '0.1.5'
 const watchStatusOrder: WatchStatus[] = ['watching', 'waiting', 'planned', 'completed', 'dropped']
 
 const fallbackStreaming: TmdbItem[] = [
