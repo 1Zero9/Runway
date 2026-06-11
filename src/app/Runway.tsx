@@ -10,6 +10,7 @@ import {
   Eye,
   Filter,
   Heart,
+  LayoutDashboard,
   ListPlus,
   MonitorPlay,
   Plus,
@@ -29,7 +30,9 @@ import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { formatEpisodeLabel } from '@/lib/episode-label'
 import './runway.css'
 
-type Tab = 'tonight' | 'runway' | 'library' | 'settings'
+type Tab = 'tonight' | 'runway' | 'library' | 'settings' | 'guide'
+type TimeFit = 'any' | '30min' | '1hour' | 'film'
+type ShortlistEntry = { item: WatchingItem; reason: string; action: string }
 type ListingTimeMode = 'from_now' | 'full_day'
 type DiscoveryMediaType = 'all' | 'movie' | 'tv'
 type DiscoveryStatusFilter = 'all' | 'unselected' | RecommendationItem['status']
@@ -258,12 +261,25 @@ function App() {
   const [detailItemId, setDetailItemId] = useState<string | null>(null)
   const [showDetailCache, setShowDetailCache] = useState<Record<number, TmdbShowDetail>>({})
   const [pulsingItemId, setPulsingItemId] = useState<string | null>(null)
+  const [timeFit, setTimeFit] = useState<TimeFit>('any')
+  const [reconDismissed, setReconDismissed] = useState(false)
   const refreshPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nowLineRef = useRef<HTMLDivElement>(null)
 
   const inProgressShows = watching
     .filter((i) => getWatchStatus(i) === 'watching')
     .sort((a, b) => (b.lastWatchedAt ?? '').localeCompare(a.lastWatchedAt ?? ''))
+
+  const shortlistItems = useMemo(() => deriveShortlist(watching, timeFit), [watching, timeFit])
+
+  const reconItems = useMemo(() => {
+    if (reconDismissed) return []
+    const sevenDaysAgo = new Date(now)
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    const threshold = formatIrelandDate(sevenDaysAgo)
+    return inProgressShows.filter((i) => !i.lastWatchedAt || i.lastWatchedAt < threshold)
+  }, [inProgressShows, now, reconDismissed])
+
   const discoveryStatusByKey = useMemo(
     () =>
       recommendationItems.reduce((map, item) => {
@@ -373,6 +389,20 @@ function App() {
     () => new Set(watching.map((item) => normalizeTitle(item.title))),
     [watching],
   )
+
+  const tvTonightTracked = useMemo(() => {
+    const todayStr = formatIrelandDate(now)
+    const nowMs = now.getTime()
+    return tvItems
+      .filter((item) => {
+        if (formatIrelandDate(new Date(item.airstamp)) !== todayStr) return false
+        const endMs = Date.parse(item.airstamp) + (item.runtime ?? 60) * 60 * 1000
+        if (endMs < nowMs - 5 * 60 * 1000) return false
+        return trackedTitleSet.has(normalizeTitle(item.show.name))
+      })
+      .slice(0, 8)
+  }, [now, trackedTitleSet, tvItems])
+
   const calendarEvents = useMemo(() => {
     const watchEvents = watching
       .filter((item) => !['completed', 'dropped'].includes(getWatchStatus(item)))
@@ -523,7 +553,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if (tab !== 'tonight') return
+    if (tab !== 'guide') return
     const timer = window.setTimeout(() => {
       nowLineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 180)
@@ -990,21 +1020,181 @@ function App() {
           <h1 className="topbar-wordmark">Runway</h1>
         </div>
         <nav className="tabs" aria-label="Guide views">
-          <TabButton active={tab === 'tonight'} icon={<Tv size={18} />} label="Tonight" onClick={() => setTab('tonight')} />
+          <TabButton active={tab === 'tonight'} icon={<LayoutDashboard size={18} />} label="Dashboard" onClick={() => setTab('tonight')} />
           <TabButton active={tab === 'runway'} icon={<Sparkles size={18} />} label="Runway" onClick={() => setTab('runway')} />
           <TabButton active={tab === 'library'} icon={<Star size={18} />} label="Library" onClick={() => setTab('library')} />
         </nav>
-        <button className="icon-button" type="button" aria-label="Settings" onClick={() => setTab('settings')}>
-          <Settings size={20} />
-        </button>
+        <div className="topbar-actions">
+          <button className={tab === 'guide' ? 'icon-button active-icon' : 'icon-button'} type="button" aria-label="TV Guide" onClick={() => setTab('guide')}>
+            <Tv size={20} />
+          </button>
+          <button className={tab === 'settings' ? 'icon-button active-icon' : 'icon-button'} type="button" aria-label="Settings" onClick={() => setTab('settings')}>
+            <Settings size={20} />
+          </button>
+        </div>
       </header>
 
 
       {tab === 'tonight' && (
-        <section className="view">
-          {inProgressShows.length > 0 && (
-            <UpNextRail items={inProgressShows} onMarkWatched={markWatched} />
+        <section className="view dashboard">
+          {/* Greeting */}
+          <div className="dashboard-greeting">
+            <h2 className="greeting-date">{formatGreeting(now)}</h2>
+          </div>
+
+          {/* Time-fit chips */}
+          <div className="time-fit-bar" role="group" aria-label="How much time do you have?">
+            {(['any', '30min', '1hour', 'film'] as TimeFit[]).map((fit) => (
+              <button
+                key={fit}
+                className={timeFit === fit ? 'time-fit-chip active' : 'time-fit-chip'}
+                type="button"
+                onClick={() => setTimeFit(fit)}
+              >
+                {fit === 'any' ? 'Anything' : fit === '30min' ? '30 min' : fit === '1hour' ? '1 hour' : 'Film night'}
+              </button>
+            ))}
+          </div>
+
+          {/* Shortlist */}
+          <div className="dashboard-section">
+            <h2 className="dashboard-section-header">Shortlist</h2>
+            {shortlistItems.length > 0 ? (
+              <div className="shortlist-rail">
+                {shortlistItems.map((entry) => (
+                  <ShortlistCard
+                    key={entry.item.id}
+                    entry={entry}
+                    showDetail={entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined}
+                    onMarkWatched={() => markWatched(entry.item)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="dashboard-empty-hint">
+                Track your first show from the Library tab to get started.
+              </p>
+            )}
+          </div>
+
+          {/* Reconciliation */}
+          {reconItems.length > 0 && (
+            <ReconciliationCard
+              items={reconItems}
+              onConfirm={(item) => markWatched(item)}
+              onDismiss={() => setReconDismissed(true)}
+            />
           )}
+
+          {/* Continue watching */}
+          {inProgressShows.length > 0 && (
+            <div className="dashboard-section">
+              <h2 className="dashboard-section-header">Continue watching</h2>
+              <ContinueRail
+                items={inProgressShows}
+                showDetailCache={showDetailCache}
+                onMarkWatched={markWatched}
+              />
+            </div>
+          )}
+
+          {/* Coming up */}
+          {countdownGroups.length > 0 && (
+            <div className="dashboard-section">
+              <h2 className="dashboard-section-header">Coming up</h2>
+              {countdownGroups.map((group) => (
+                <div key={group.label} className="countdown-group">
+                  <p className="countdown-group-label">{group.label}</p>
+                  <div className="countdown-cards">
+                    {group.items.map((item) => (
+                      <CountdownCard
+                        key={item.id}
+                        chip={item.chip}
+                        days={item.days}
+                        dominantColour={item.dominantColour}
+                        posterPath={item.posterPath}
+                        title={item.title}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* On TV tonight */}
+          <div className="dashboard-section">
+            <h2 className="dashboard-section-header">On TV tonight</h2>
+            {tvTonightTracked.length > 0 ? (
+              <div className="tv-tonight-list">
+                {tvTonightTracked.map((item) => {
+                  const timeStatus = getProgrammeStatus(item, now.getTime())
+                  return (
+                    <div key={item.id} className="tv-tonight-row">
+                      <span className="tv-tonight-time">{item.airtime || formatTime(item.airstamp)}</span>
+                      <span className="tv-tonight-channel">{item.show.network?.name ?? item.show.webChannel?.name ?? ''}</span>
+                      <span className="tv-tonight-title">{item.show.name}</span>
+                      <div className="tv-tonight-chips">
+                        {timeStatus === 'on-now' && <span className="status-chip chip-on-now">On now</span>}
+                        {timeStatus === 'next' && <span className="status-chip chip-next">Next</span>}
+                        <span className="status-chip chip-tracked">Tracked</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="tv-tonight-empty">
+                <span>Nothing of yours on TV tonight.</span>
+                <button type="button" className="quiet-link" onClick={() => setTab('guide')}>Full guide →</button>
+              </div>
+            )}
+          </div>
+
+          {/* Worth a look */}
+          {suggestions.length > 0 && (
+            <div className="dashboard-section">
+              <h2 className="dashboard-section-header">Worth a look</h2>
+              <div className="suggestion-strip">
+                {suggestions.slice(0, 6).map((item) => (
+                  <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
+                    {item.poster_path ? (
+                      <Image
+                        src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
+                        alt=""
+                        width={44}
+                        height={64}
+                        style={{ width: '44px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block' }}
+                        placeholder="blur"
+                        blurDataURL={makePosterBlur(null)}
+                      />
+                    ) : (
+                      <div className="poster-fallback" style={{ width: '44px', height: '64px', borderRadius: '6px', background: 'var(--surface-sunken)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span className="poster-fallback-initial">{((item.title ?? item.name ?? '?')[0]).toUpperCase()}</span>
+                      </div>
+                    )}
+                    <div className="suggestion-info">
+                      <strong>{item.title ?? item.name}</strong>
+                      <span>{item.provider}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="icon-button quiet"
+                      aria-label={`Track ${item.title ?? item.name}`}
+                      onClick={() => persistWatchingItem(mediaToWatchingItem(item))}
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === 'guide' && (
+        <section className="view">
           <div className="tool-row">
             <label className="field compact">
               <CalendarDays size={17} />
@@ -1813,6 +2003,155 @@ function App() {
   )
 }
 
+function ShortlistCard({
+  entry,
+  showDetail,
+  onMarkWatched,
+}: {
+  entry: ShortlistEntry
+  showDetail: TmdbShowDetail | undefined
+  onMarkWatched: () => void
+}) {
+  const { item, reason, action } = entry
+  const progress = showDetail && item.type !== 'film' && item.type !== 'sport'
+    ? computeWatchProgress(item, showDetail)
+    : 0
+  return (
+    <article className="shortlist-card">
+      <div className="shortlist-card-poster">
+        {item.posterPath ? (
+          <Image
+            src={`https://image.tmdb.org/t/p/w342${item.posterPath}`}
+            alt=""
+            width={342}
+            height={513}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            placeholder="blur"
+            blurDataURL={makePosterBlur(null)}
+          />
+        ) : (
+          <div className="poster-fallback" style={{ width: '100%', height: '100%', background: 'var(--surface-sunken)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '8px', padding: '12px' }}>
+            <span className="poster-fallback-initial">{(item.title[0] ?? '?').toUpperCase()}</span>
+            <span className="poster-fallback-title">{item.title}</span>
+          </div>
+        )}
+        {progress > 0 && (
+          <div className="shortlist-progress-track">
+            <div className="shortlist-progress-fill" style={{ width: `${progress}%` }} />
+          </div>
+        )}
+      </div>
+      <div className="shortlist-card-info">
+        <span className="shortlist-card-service">{item.service}</span>
+        <h3 className="shortlist-card-title">{item.title}</h3>
+        <p className="shortlist-card-reason">{reason}</p>
+        <button type="button" className="shortlist-card-action" onClick={onMarkWatched}>
+          <Check size={13} />
+          {action}
+        </button>
+      </div>
+    </article>
+  )
+}
+
+function ContinueRail({
+  items,
+  showDetailCache,
+  onMarkWatched,
+}: {
+  items: WatchingItem[]
+  showDetailCache: Record<number, TmdbShowDetail>
+  onMarkWatched: (item: WatchingItem) => void
+}) {
+  return (
+    <div className="continue-rail">
+      {items.slice(0, 10).map((item) => {
+        const showDetail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
+        const progress = showDetail && item.type !== 'film' && item.type !== 'sport'
+          ? computeWatchProgress(item, showDetail)
+          : 0
+        const epLabel =
+          item.type !== 'film' && item.type !== 'sport'
+            ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
+            : null
+        return (
+          <div key={item.id} className="continue-card">
+            <div className="continue-card-poster">
+              {item.posterPath ? (
+                <Image
+                  src={`https://image.tmdb.org/t/p/w185${item.posterPath}`}
+                  alt=""
+                  width={185}
+                  height={278}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  placeholder="blur"
+                  blurDataURL={makePosterBlur(null)}
+                />
+              ) : (
+                <div className="poster-fallback" style={{ width: '100%', height: '100%', background: 'var(--surface-sunken)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="poster-fallback-initial">{(item.title[0] ?? '?').toUpperCase()}</span>
+                </div>
+              )}
+              <div className="continue-card-progress-track">
+                <div className="continue-card-progress-fill" style={{ width: `${Math.max(2, progress)}%` }} />
+              </div>
+            </div>
+            <div className="continue-card-info">
+              {epLabel && <span className="continue-card-ep">{epLabel}</span>}
+              <span className="continue-card-title">{item.title}</span>
+            </div>
+            <button type="button" className="continue-card-mark" onClick={() => onMarkWatched(item)}>
+              <Check size={11} />
+              {item.type === 'film' ? 'Watched' : 'Ep watched'}
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function ReconciliationCard({
+  items,
+  onConfirm,
+  onDismiss,
+}: {
+  items: WatchingItem[]
+  onConfirm: (item: WatchingItem) => void
+  onDismiss: () => void
+}) {
+  return (
+    <div className="recon-card">
+      <div className="recon-card-header">
+        <span className="recon-card-label">Catch me up — did you watch these?</span>
+        <button type="button" className="icon-button quiet" onClick={onDismiss} aria-label="Dismiss">
+          <span aria-hidden>×</span>
+        </button>
+      </div>
+      <div className="recon-list">
+        {items.slice(0, 4).map((item) => {
+          const epLabel =
+            item.type !== 'film' && item.type !== 'sport'
+              ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
+              : null
+          return (
+            <div key={item.id} className="recon-row">
+              <div className="recon-row-info">
+                <span className="recon-row-title">{item.title}</span>
+                {epLabel && <span className="recon-row-ep">{epLabel}</span>}
+              </div>
+              <button type="button" className="recon-confirm" onClick={() => onConfirm(item)}>
+                <Check size={12} />
+                Watched
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function CountdownCard({
   chip,
   days,
@@ -2537,6 +2876,78 @@ function computeWatchProgress(item: WatchingItem, detail: TmdbShowDetail): numbe
     }
   }
   return Math.min(100, Math.round((100 * watched) / detail.numberOfEpisodes))
+}
+
+function formatGreeting(date: Date): string {
+  return new Intl.DateTimeFormat('en-IE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Europe/Dublin',
+  }).format(date)
+}
+
+function deriveShortlist(items: WatchingItem[], timeFit: TimeFit): ShortlistEntry[] {
+  const now = new Date()
+  const fourteenDaysAgo = new Date(now)
+  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
+  const fourteenAgoStr = formatIrelandDate(fourteenDaysAgo)
+  const thirtyDaysAgo = new Date(now)
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const thirtyAgoStr = formatIrelandDate(thirtyDaysAgo)
+
+  const eligible = items.filter((i) => !['completed', 'dropped'].includes(getWatchStatus(i)))
+  const filtered = timeFit === 'film' ? eligible.filter((i) => i.type === 'film') : eligible
+  const pool = filtered.length > 0 ? filtered : eligible
+
+  type Candidate = ShortlistEntry & { priority: number; lastWatched: string }
+  const candidates: Candidate[] = pool.map((item) => {
+    const status = getWatchStatus(item)
+    const epLabel =
+      item.type !== 'film' && item.type !== 'sport'
+        ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
+        : null
+
+    let priority = 50
+    let reason = ''
+    let action = ''
+
+    if (status === 'watching') {
+      const lw = item.lastWatchedAt ?? ''
+      if (lw >= fourteenAgoStr) {
+        priority = 10
+        reason = epLabel ? `Next: ${epLabel} · ${item.service}` : `Continue · ${item.service}`
+        action = epLabel ? `Mark ${epLabel} watched` : 'Mark watched'
+      } else if (lw >= thirtyAgoStr) {
+        priority = 20
+        reason = epLabel ? `Next: ${epLabel} · ${item.service}` : `Continue · ${item.service}`
+        action = epLabel ? `Mark ${epLabel} watched` : 'Mark watched'
+      } else {
+        priority = 30
+        reason = lw ? `Still going? Last watched ${formatShortDate(lw)}` : `Start watching · ${item.service}`
+        action = epLabel ? `Mark ${epLabel} watched` : 'Mark watched'
+      }
+    } else if (status === 'waiting') {
+      priority = 40
+      reason = `Waiting for new season · ${item.service}`
+      action = 'Start watching'
+    } else {
+      priority = 50
+      reason = `On your list · ${item.service}`
+      action = item.type === 'film' ? 'Start watching' : 'Start watching'
+    }
+
+    if ((timeFit === '30min' || timeFit === '1hour') && item.type === 'film') {
+      priority += 15
+    }
+
+    return { item, reason, action, priority, lastWatched: item.lastWatchedAt ?? '' }
+  })
+
+  return candidates
+    .sort((a, b) => a.priority !== b.priority ? a.priority - b.priority : b.lastWatched.localeCompare(a.lastWatched))
+    .map(({ item, reason, action }) => ({ item, reason, action }))
+    .slice(0, 5)
 }
 
 export default App

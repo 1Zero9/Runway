@@ -2694,3 +2694,493 @@ button:disabled {
     align-items: flex-start;
   }
 }
+
+/* ── Dashboard ──────────────────────────────────────────────────────────── */
+
+.dashboard {
+  padding-top: 0;
+}
+
+.dashboard-greeting {
+  padding: var(--space-8) var(--space-5) var(--space-4);
+}
+
+.greeting-date {
+  font-family: var(--font-display);
+  font-size: var(--fs-3xl);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.time-fit-bar {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-5) var(--space-5);
+  flex-wrap: wrap;
+}
+
+.time-fit-chip {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+  white-space: nowrap;
+}
+
+.time-fit-chip:hover {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.time-fit-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.dashboard-section {
+  padding: 0 var(--space-5) var(--space-8);
+}
+
+.dashboard-section-header {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 550;
+  color: var(--ink);
+  line-height: 1.2;
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.dashboard-empty-hint {
+  font-size: var(--fs-base);
+  color: var(--ink-soft);
+  padding: var(--space-4) 0;
+}
+
+/* Shortlist */
+
+.shortlist-rail {
+  display: flex;
+  gap: var(--space-4);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 var(--space-5);
+  padding-bottom: var(--space-2);
+  -webkit-overflow-scrolling: touch;
+}
+
+.shortlist-rail::-webkit-scrollbar { display: none; }
+
+.shortlist-card {
+  flex: 0 0 200px;
+  scroll-snap-align: start;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 150ms ease, transform 150ms ease;
+}
+
+.shortlist-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.shortlist-card-poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.shortlist-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--line);
+}
+
+.shortlist-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 300ms ease;
+}
+
+.shortlist-card-info {
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+}
+
+.shortlist-card-service {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+.shortlist-card-title {
+  font-size: var(--fs-md);
+  font-weight: 650;
+  color: var(--ink);
+  line-height: 1.3;
+  margin: 0;
+}
+
+.shortlist-card-reason {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  line-height: 1.4;
+  margin: 0;
+  flex: 1;
+}
+
+.shortlist-card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-2);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #FFFFFF;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: none;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+  white-space: nowrap;
+  align-self: flex-start;
+}
+
+.shortlist-card-action:hover { opacity: 0.88; }
+.shortlist-card-action:active { opacity: 0.78; }
+
+/* Continue watching rail */
+
+.continue-rail {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 var(--space-5);
+  padding-bottom: var(--space-2);
+  -webkit-overflow-scrolling: touch;
+}
+
+.continue-rail::-webkit-scrollbar { display: none; }
+
+.continue-card {
+  flex: 0 0 110px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.continue-card-poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-poster);
+  background: var(--surface-sunken);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+
+.continue-card-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(22,24,29,0.15);
+}
+
+.continue-card-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  min-width: 2px;
+  transition: width 300ms ease;
+}
+
+.continue-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.continue-card-ep {
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  font-feature-settings: "tnum";
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+}
+
+.continue-card-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.continue-card-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+  white-space: nowrap;
+}
+
+.continue-card-mark:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Reconciliation card */
+
+.recon-card {
+  margin: 0 var(--space-5) var(--space-6);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+.recon-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.recon-card-label {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.recon-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.recon-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--line);
+}
+
+.recon-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.recon-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.recon-row-title {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recon-row-ep {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  font-feature-settings: "tnum";
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.recon-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.recon-confirm:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* On TV tonight */
+
+.tv-tonight-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.tv-tonight-row {
+  display: grid;
+  grid-template-columns: 52px 1fr auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+.tv-tonight-row:first-child {
+  border-top: none;
+}
+
+.tv-tonight-time {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink);
+  font-feature-settings: "tnum";
+}
+
+.tv-tonight-channel {
+  display: none;
+}
+
+.tv-tonight-title {
+  font-size: var(--fs-base);
+  color: var(--ink);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tv-tonight-chips {
+  display: flex;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.tv-tonight-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+  font-size: var(--fs-base);
+  color: var(--ink-soft);
+}
+
+.quiet-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: var(--fs-base);
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.icon-button.active-icon {
+  color: var(--accent);
+}
+
+@media (min-width: 640px) {
+  .tv-tonight-row {
+    grid-template-columns: 52px 120px 1fr auto;
+  }
+
+  .tv-tonight-channel {
+    display: block;
+    font-size: var(--fs-sm);
+    color: var(--ink-faint);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .shortlist-card {
+    flex: 0 0 240px;
+  }
+
+  .continue-card {
+    flex: 0 0 130px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-greeting {
+    padding: var(--space-10) var(--space-8) var(--space-5);
+  }
+
+  .dashboard-section {
+    padding: 0 var(--space-8) var(--space-10);
+  }
+
+  .time-fit-bar {
+    padding: 0 var(--space-8) var(--space-6);
+  }
+
+  .shortlist-card {
+    flex: 0 0 280px;
+  }
+
+  .continue-card {
+    flex: 0 0 150px;
+  }
+}

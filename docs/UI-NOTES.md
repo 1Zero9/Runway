@@ -10,6 +10,66 @@ RUNWAY-BRIEF.md supersedes all prior UI work. Light mode only, red accent `#C236
 
 ---
 
+## Phase 4 — The Dashboard ✅
+
+**What changed:**
+
+**Tab restructure:**
+- `Tab` type extended: `'tonight' | 'runway' | 'library' | 'settings' | 'guide'`
+- `tonight` tab → decision dashboard (8 sections per brief)
+- EPG full guide moved to new `guide` tab, accessible via Tv icon in topbar
+- `Tv` tab icon replaced with `LayoutDashboard` for the Dashboard tab
+- Topbar now has `topbar-actions` group (Guide icon + Settings icon as quiet right-side icons)
+- `icon-button.active-icon` shows `--accent` highlight when the corresponding tab is active
+
+**New state:**
+- `timeFit: TimeFit` — session-only, default `'any'`
+- `reconDismissed: boolean` — session-only, dismisses reconciliation card for the session
+
+**New computed:**
+- `shortlistItems` — `deriveShortlist(watching, timeFit)`, max 5 entries
+- `tvTonightTracked` — today's EPG filtered to `trackedTitleSet`, from now → midnight, max 8
+- `reconItems` — `inProgressShows` where `lastWatchedAt` is >7 days ago or null (zeroed when dismissed)
+
+**Dashboard sections (in order):**
+1. **Greeting** — Fraunces `--fs-3xl` with `formatGreeting(now)` (e.g. "Thursday 11 June")
+2. **Time-fit chips** — `Anything / 30 min / 1 hour / Film night`; active state uses `--accent-soft` + `--accent` border/text; session-only
+3. **Shortlist** — `ShortlistCard` components; Fraunces section header + hairline rule; horizontal scroll-snap rail; each card: poster, service label, title, reason line, red action button
+4. **Reconciliation** — `ReconciliationCard` appears when `reconItems.length > 0`; lists up to 4 stale shows; per-item "Watched" confirm; dismiss × button sets `reconDismissed = true`
+5. **Continue watching** — `ContinueRail`; small posters with 3px red progress hairline at bottom; next-ep label; "Ep watched" / "Watched" button
+6. **Coming up** — existing countdown groups reused in dashboard
+7. **On TV tonight** — compact rows (time, channel at ≥640px, title, chips); empty state with "Full guide →" quiet-link to guide tab
+8. **Worth a look** — existing suggestion strip reused in dashboard
+
+**New pure functions:**
+- `deriveShortlist(items, timeFit)` — priority rules: CONTINUE recent (≤14 days) → CONTINUE older (≤30 days) → STALLED → WAITING → PLANNED; time-fit 'film' filters to `type === 'film'` first; '30min'/'1hour' deprioritize films by +15 priority; fallback to full pool when film filter yields empty
+- `formatGreeting(date)` — `Intl.DateTimeFormat` `weekday: long, day: numeric, month: long`
+
+**New components:**
+- `ShortlistCard` — 200/240/280px wide (mobile/tablet/desktop); 2:3 poster; red action button; progress hairline when `showDetail` available from `showDetailCache`
+- `ContinueRail` — horizontal scroll; 110/130/150px wide cards; 3px red progress track
+- `ReconciliationCard` — quiet surface card; per-row confirm buttons
+
+**CSS additions:**
+- `.dashboard`, `.dashboard-greeting`, `.greeting-date`
+- `.time-fit-bar`, `.time-fit-chip`, `.time-fit-chip.active`
+- `.dashboard-section`, `.dashboard-section-header` (Fraunces 22px + hairline rule)
+- `.shortlist-rail`, `.shortlist-card`, `.shortlist-progress-track/fill`, `.shortlist-card-info/service/title/reason/action`
+- `.continue-rail`, `.continue-card`, `.continue-card-poster/progress-track/fill/info/ep/title/mark`
+- `.recon-card`, `.recon-card-header/label`, `.recon-list`, `.recon-row/info/title/ep`, `.recon-confirm`
+- `.tv-tonight-list/row/time/channel/title/chips/empty`, `.quiet-link`
+- `.topbar-actions`, `.icon-button.active-icon`
+- Responsive breakpoints at 640px (channel column + wider cards) and 1024px (wider gutters + 280px shortlist cards)
+
+**Auto-scroll to now-line:** moved from `tab === 'tonight'` to `tab === 'guide'` guard.
+
+**Failure mode audit:**
+- Logging still effortless: "Ep watched" one-tap in Continue rail; Reconciliation card repairs lapses in one pass.
+- Data still trustworthy: shortlist is derived purely from existing `watching` state; no new sync paths.
+- Dashboard serves tonight's decision: all 8 sections exist to answer "what should I watch?" — nothing else visible.
+
+---
+
 ## Phase 3 — Artwork pipeline ✅
 
 **What changed:**
