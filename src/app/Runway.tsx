@@ -26,6 +26,7 @@ import {
 import Image from 'next/image'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent, ReactNode } from 'react'
+import { formatEpisodeLabel } from '@/lib/episode-label'
 import './runway.css'
 
 type Tab = 'tonight' | 'runway' | 'library' | 'settings'
@@ -986,7 +987,6 @@ function App() {
       <header className="topbar">
         <div className="topbar-brand">
           <h1 className="topbar-wordmark">Runway</h1>
-          <span className="build-id">{process.env.NEXT_PUBLIC_COMMIT ?? 'dev'}</span>
         </div>
         <nav className="tabs" aria-label="Guide views">
           <TabButton active={tab === 'tonight'} icon={<Tv size={18} />} label="Tonight" onClick={() => setTab('tonight')} />
@@ -1058,81 +1058,11 @@ function App() {
               </button>
             </div>
           </div>
-          <section className="channel-panel" aria-label="Sky channel favourites">
-            <div className="channel-panel-heading">
-              <div>
-                <p className="eyebrow">Sky channels</p>
-                <h2>
-                  {channelFilter === 'all'
-                    ? 'Your channel list'
-                    : channelOptions.find((channel) => channel.id === channelFilter)?.name ?? 'Selected channel'}
-                </h2>
-                <span>
-                  {channelFilter === 'all'
-                    ? `${favoriteChannels.length || effectiveFavoriteChannelIds.length} favourites from ${channelOptions.length || 'the'} channel roster`
-                    : selectedDate === formatIrelandDate(new Date()) && listingTimeMode === 'from_now'
-                      ? 'Showing from now for this channel'
-                      : 'Showing the full day for this channel'}
-                </span>
-              </div>
-              <div className="segmented-actions">
-                <button
-                  className={channelMode === 'favorites' && channelFilter === 'all' ? 'active' : ''}
-                  type="button"
-                  onClick={() => {
-                    setChannelMode('favorites')
-                    setChannelFilter('all')
-                  }}
-                >
-                  Favourites
-                </button>
-                <button
-                  className={channelMode === 'all' && channelFilter === 'all' ? 'active' : ''}
-                  type="button"
-                  onClick={() => {
-                    setChannelMode('all')
-                    setChannelFilter('all')
-                  }}
-                >
-                  All
-                </button>
-              </div>
-            </div>
-            <div className="channel-chip-row">
-              {(channelMode === 'favorites' ? favoriteChannels : channelOptions).slice(0, channelMode === 'favorites' ? 36 : 64).map((channel) => (
-                <div className={favoriteChannelSet.has(channel.id) ? 'channel-chip favorite' : 'channel-chip'} key={channel.id}>
-                  <button className="channel-open" type="button" onClick={() => setChannelFilter(channel.id)}>
-                    <Star size={14} fill={favoriteChannelSet.has(channel.id) ? 'currentColor' : 'none'} />
-                    <span>{channel.name}</span>
-                  </button>
-                  <button
-                    aria-label={`${favoriteChannelSet.has(channel.id) ? 'Remove' : 'Add'} ${channel.name} ${favoriteChannelSet.has(channel.id) ? 'from' : 'to'} favourites`}
-                    className="chip-star"
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      toggleFavoriteChannel(channel.id)
-                    }}
-                  >
-                    {favoriteChannelSet.has(channel.id) ? 'On' : 'Add'}
-                  </button>
-                </div>
-              ))}
-              {channelMode === 'favorites' && favoriteChannels.length === 0 && (
-                <p className="muted-copy">No favourite channels yet. Switch to All and star the channels you actually watch.</p>
-              )}
-            </div>
-            <div className="channel-actions">
-              {channelFilter !== 'all' && (
-                <button type="button" onClick={() => setChannelFilter('all')}>
-                  Back to {channelMode === 'favorites' ? 'favourites' : 'all channels'}
-                </button>
-              )}
-              <button type="button" onClick={resetFavoriteChannels}>
-                Reset starter Sky list
-              </button>
-            </div>
-          </section>
+          <div className="edit-channels-row">
+            <button className="edit-channels-link" type="button" onClick={() => setTab('settings')}>
+              Edit channels
+            </button>
+          </div>
           {tvError && <p className="notice error">{tvError}</p>}
           <div className="board-list">
             {tvLoading && <SkeletonRows />}
@@ -1169,9 +1099,8 @@ function App() {
                         {isTracked && <span className="status-chip chip-tracked">Tracked</span>}
                       </div>
                       <button
-                        className="icon-button quiet"
+                        className="programme-action"
                         type="button"
-                        aria-label={`Track ${item.show.name}`}
                         onClick={() =>
                           persistWatchingItem({
                             id: crypto.randomUUID(),
@@ -1180,12 +1109,12 @@ function App() {
                             nextEpisode: selectedDate,
                             cadence: 'Weekly',
                             notes: item.name,
-                            type: 'show',
+                            type: item.show.type === 'Movie' ? 'film' : 'show',
                             done: false,
                           })
                         }
                       >
-                        <Plus size={18} />
+                        {item.show.type === 'Movie' ? 'Watchlist' : 'Track'}
                       </button>
                     </article>
                   </Fragment>
@@ -1490,7 +1419,7 @@ function App() {
                           {isShow && (
                             <div className="episode-tracker">
                               <span className="episode-label">
-                                S{String(item.currentSeason ?? 1).padStart(2, '0')} E{String(item.currentEpisode ?? 0).padStart(2, '0')}
+                                {formatEpisodeLabel(item.currentSeason, item.currentEpisode)}
                               </span>
                               <button
                                 type="button"
@@ -1755,6 +1684,55 @@ function App() {
                 </button>
               </div>
             </div>
+            <div className="settings-roadmap">
+              <p className="eyebrow">Channels</p>
+              <h2>Your channel list</h2>
+              <div className="settings-controls">
+                <span>{favoriteChannels.length || effectiveFavoriteChannelIds.length} favourites from {channelOptions.length || 'the'} channel roster</span>
+                <div className="segmented-actions">
+                  <button
+                    className={channelMode === 'favorites' ? 'active' : ''}
+                    type="button"
+                    onClick={() => { setChannelMode('favorites'); setChannelFilter('all') }}
+                  >
+                    Favourites
+                  </button>
+                  <button
+                    className={channelMode === 'all' ? 'active' : ''}
+                    type="button"
+                    onClick={() => { setChannelMode('all'); setChannelFilter('all') }}
+                  >
+                    All
+                  </button>
+                </div>
+              </div>
+              <div className="channel-chip-row">
+                {(channelMode === 'favorites' ? favoriteChannels : channelOptions).slice(0, channelMode === 'favorites' ? 36 : 64).map((channel) => (
+                  <div className={favoriteChannelSet.has(channel.id) ? 'channel-chip favorite' : 'channel-chip'} key={channel.id}>
+                    <button className="channel-open" type="button" onClick={() => { setChannelFilter(channel.id); setTab('tonight') }}>
+                      <Star size={14} fill={favoriteChannelSet.has(channel.id) ? 'currentColor' : 'none'} />
+                      <span>{channel.name}</span>
+                    </button>
+                    <button
+                      aria-label={`${favoriteChannelSet.has(channel.id) ? 'Remove' : 'Add'} ${channel.name} ${favoriteChannelSet.has(channel.id) ? 'from' : 'to'} favourites`}
+                      className="chip-star"
+                      type="button"
+                      onClick={(event) => { event.stopPropagation(); toggleFavoriteChannel(channel.id) }}
+                    >
+                      {favoriteChannelSet.has(channel.id) ? 'On' : 'Add'}
+                    </button>
+                  </div>
+                ))}
+                {channelMode === 'favorites' && favoriteChannels.length === 0 && (
+                  <p className="muted-copy">No favourite channels yet. Switch to All and star the channels you watch.</p>
+                )}
+              </div>
+              <div className="channel-actions">
+                <button type="button" onClick={resetFavoriteChannels}>
+                  Reset starter Sky list
+                </button>
+              </div>
+            </div>
             <h2>Data Sources</h2>
             <p>
               TV uses the Ireland XMLTV EPG feed. Streaming and cinema use TMDb with watch region IE through the protected server
@@ -1779,7 +1757,7 @@ function App() {
             <div className="source-list">
               <div>
                 <strong>App version</strong>
-                <span>Runway v{appVersion}</span>
+                <span>Runway v{appVersion}{process.env.NEXT_PUBLIC_COMMIT ? ` · build ${process.env.NEXT_PUBLIC_COMMIT}` : ''}</span>
               </div>
               <ChevronRight size={18} />
             </div>
@@ -1925,7 +1903,7 @@ function UpNextRail({
         <div key={item.id} className="upnext-card" style={{ '--card-index': index } as CSSProperties}>
           <span className="upnext-episode">
             {item.type !== 'film' && item.type !== 'sport'
-              ? `S${String(item.currentSeason ?? 1).padStart(2, '0')} E${String(item.currentEpisode ?? 0).padStart(2, '0')}`
+              ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
               : item.service}
           </span>
           <span className="upnext-title">{item.title}</span>
