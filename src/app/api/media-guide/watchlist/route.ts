@@ -20,6 +20,7 @@ type WatchlistRow = {
   current_episode: number | null
   tmdb_id: number | null
   poster_path: string | null
+  leaving_date: string | null
 }
 
 type WatchlistPayload = {
@@ -36,6 +37,7 @@ type WatchlistPayload = {
   currentEpisode?: number | null
   tmdbId?: number | null
   posterPath?: string | null
+  leavingDate?: string | null
   watchedCount?: number
   done?: boolean
   status?: string
@@ -47,7 +49,7 @@ export async function GET() {
 
   const sql = await getSql()
   const rows = await sql`
-    select id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path
+    select id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date
     from media_watchlist
     order by done asc, next_episode asc nulls last, created_at desc
   `
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
   const userRating = normalizeRating(payload.userRating)
   const rows = await sql`
     insert into media_watchlist (
-      id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path
+      id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date
     )
     values (
       ${payload.id ?? crypto.randomUUID()},
@@ -86,9 +88,10 @@ export async function POST(request: Request) {
       ${payload.currentSeason ?? 1},
       ${payload.currentEpisode ?? 0},
       ${payload.tmdbId ?? null},
-      ${payload.posterPath ?? null}
+      ${payload.posterPath ?? null},
+      ${payload.leavingDate ?? null}
     )
-    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path
+    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date
   `
 
   return NextResponse.json(mapRow(rows[0] as WatchlistRow), { status: 201 })
@@ -116,8 +119,13 @@ export async function PATCH(request: Request) {
         current_episode = coalesce(${payload.currentEpisode ?? null}, current_episode),
         tmdb_id = coalesce(${payload.tmdbId ?? null}, tmdb_id)
     where id = ${payload.id}
-    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path
+    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date
   `
+  if ('leavingDate' in (payload as Record<string, unknown>)) {
+    await sql`update media_watchlist set leaving_date = ${payload.leavingDate ?? null} where id = ${payload.id}`
+    const updated = rows[0] as WatchlistRow
+    updated.leaving_date = payload.leavingDate ?? null
+  }
 
   if (!rows.length) {
     return NextResponse.json({ error: 'watchlist item not found.' }, { status: 404 })
@@ -179,6 +187,7 @@ async function ensureTable(sql: NeonQueryFunction<false, false>) {
   await sql`alter table media_watchlist add column if not exists current_episode int default 0`
   await sql`alter table media_watchlist add column if not exists tmdb_id int`
   await sql`alter table media_watchlist add column if not exists poster_path text`
+  await sql`alter table media_watchlist add column if not exists leaving_date date`
 }
 
 function mapRow(row: WatchlistRow) {
@@ -199,6 +208,7 @@ function mapRow(row: WatchlistRow) {
     currentEpisode: row.current_episode ?? 0,
     tmdbId: row.tmdb_id ?? null,
     posterPath: row.poster_path ?? null,
+    leavingDate: row.leaving_date ?? null,
   }
 }
 

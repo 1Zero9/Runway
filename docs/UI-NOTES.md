@@ -485,3 +485,137 @@ All tables get `user_id` defaulting to 'steve' via `RUNWAY_USER_ID` constant.
 - ✅ Thin dark scrollbar
 - ✅ All animations guarded by prefers-reduced-motion
 - ✅ TypeScript: clean
+
+---
+
+## Phase 5 — Leaving dates + catch-up gesture ✅
+
+**What changed:**
+
+- `WatchingItem` extended with `leavingDate?: string | null`
+- `WatchlistRow` / `WatchlistPayload` in `/api/media-guide/watchlist/route.ts` include `leaving_date`
+- `ensureTable` adds `alter table … add column if not exists leaving_date date`
+- PATCH route uses a separate conditional UPDATE to set `leaving_date = null` correctly (COALESCE can't clear to NULL)
+- `updateLeavingDate(item, date)` — optimistic update + PATCH call in `Runway.tsx`
+- `ShowDetailPanel` rewritten with:
+  - `pendingCatchup` state — tap an unwatched episode to show a confirmation bar
+  - `editingLeaving` state — inline date input via `LeavingDateRow`
+  - `show-detail-meta` row — episode count + remaining label + leaving chip
+  - Catch-up bar shows "Watched up to here" (bulk mark) and "Just this episode" actions
+- `LeavingDateRow` component: leaving chip (red when ≤7 days) → edit mode with date input
+- `handleEpisodeUpdate` detects last episode → calls `updateWatchingStatus('completed')` + toast
+- `onUpdateLeavingDate` prop threaded through to `ShowDetailPanel` from `ShortlistCard` and parent
+
+**New CSS classes:** `.show-detail-meta`, `.show-detail-leaving`, `.leaving-chip`, `.leaving-chip.urgent`, `.leaving-edit`, `.leaving-date-input`, `.ep-catchup-bar`, `.ep-catchup-label`, `.ep-catchup-btn`, `.ep-catchup-btn.secondary`, `.ep-catchup-dismiss`
+
+**Acceptance criteria status:**
+- ✅ Leaving date visible in show detail panel
+- ✅ Chip turns red when ≤7 days remain
+- ✅ Date editable inline with date input
+- ✅ Clearing the date works (null PATCH)
+- ✅ Catch-up gesture shows confirmation bar for non-next-episode taps
+- ✅ Finishing last episode auto-completes the show
+- ✅ TypeScript: clean
+
+---
+
+## Phase 6 — Shortlist engine ✅
+
+**What changed:**
+
+- `src/lib/shortlist.ts` — new pure `buildShortlist(items, context, timeFit)` function
+  - 7 rules: LEAVING_SOON (≤14 days), FINISH_LINE (≤3 eps left), NEW_SEASON, CONTINUE (≤14 days), ON_TV_TONIGHT, STALLED (30+ days), START_FRESH
+  - Priority: LEAVING_SOON=1 … START_FRESH=7; max 2 cards per rule; returns top 5
+  - `timeFit` filter: film night, 30min (≤35min avgRuntime), 1hour (≤70min)
+  - Accepts `EpisodeCounts` map (watched/total/avgRuntime keyed by item id)
+  - Accepts `tvTonightTitles` Set for ON_TV_TONIGHT; `userProviders` array for START_FRESH filtering
+- `src/lib/__tests__/shortlist.test.ts` — 40 tests covering all rules + composition + time-fit
+- `Runway.tsx` — `deriveShortlist` replaced with `buildShortlist`; shortlistItems memo now receives:
+  - `today` from `formatIrelandDate(now)`
+  - `tvTonightTitles` from `tvTonightTracked` show names
+  - `episodeCounts` built from `showDetailCache` (watched count computed from season/episode position)
+  - `userProviders` from enabled providers flatMap of match arrays
+
+**Acceptance criteria status:**
+- ✅ 40 tests pass (`npm test`)
+- ✅ TypeScript: clean
+- ✅ ON_TV_TONIGHT wired to live EPG data
+- ✅ FINISH_LINE / episode counts wired to TMDb show detail cache
+- ✅ START_FRESH filters by enabled streaming services
+
+---
+
+## Phase 7 — Guide & Settings refinement ✅
+
+**What changed:**
+
+- Guide tab: channel `<select>` dropdown replaced with scrollable quiet chip strip (`.guide-channel-bar`)
+  - "Favourites" / "All" chip clears channel filter; per-channel chips toggle single-channel view
+  - Settings gear icon at end of chip bar — quick link to channel settings
+  - Sport / From now / Full day controls moved to a right-aligned row next to search
+  - Date picker tucked to the right
+- Settings tab: new "Streaming Services" section with toggle chips for enabled providers (`.provider-settings-chip`)
+  - These feed directly into `buildShortlist` `userProviders` context for START_FRESH filtering
+
+**New CSS classes:** `.guide-tool-row`, `.guide-tool-right`, `.guide-date-field`, `.guide-channel-bar`, `.guide-channel-chip`, `.guide-channel-chip.active`, `.guide-channel-settings`, `.settings-help`, `.provider-settings-row`, `.provider-settings-chip`, `.provider-settings-chip.active`
+
+**Acceptance criteria status:**
+- ✅ Channel filter is chips not dropdown
+- ✅ Guide is pleasant but clearly secondary to the dashboard
+- ✅ Provider preferences in Settings
+- ✅ TypeScript: clean
+
+---
+
+## Phase 8 — Calendar feed ✅
+
+**What changed:**
+
+- `src/app/api/calendar/token/route.ts` — GET returns current token, POST generates/regenerates a new one
+  - Creates `runway_calendar_tokens` table (user_id PK, token, created_at)
+  - Protected by `hasMediaGuideSession()`
+- `src/app/api/calendar/[token]/route.ts` — public ICS endpoint
+  - Validates token against `runway_calendar_tokens`; returns 404 for invalid tokens
+  - Emits VEVENTs for: next episode air dates, film release dates, leaving-soon deadlines
+  - RFC 5545 compliant: all-day events (DATE not DATETIME), line folding at 75 octets, ICS escaping
+- `Runway.tsx` — calendar section in Settings:
+  - `calendarToken` state, fetched on mount
+  - `generateCalendarToken()` function calls POST, updates state
+  - Settings shows: full URL in `<code>`, Copy URL button, Regenerate button
+  - Uses existing `ep-catchup-btn` / `Copy` / `RefreshCw` / `CalendarDays` icons (no new imports)
+
+**New CSS classes:** `.calendar-feed-row`, `.calendar-url-display`, `.calendar-feed-actions`
+
+**Acceptance criteria status:**
+- ✅ Token generation works
+- ✅ ICS route returns valid calendar format
+- ✅ Events include next-episode dates, film releases, leaving-soon alerts
+- ✅ Token-protected (404 on invalid token)
+- ✅ Copy URL to clipboard in Settings
+- ✅ Regenerate invalidates old URL
+- ✅ TypeScript: clean
+
+---
+
+## Phase 9 — Polish pass ✅
+
+**What changed:**
+
+- Keyboard shortcuts (global `keydown` listener):
+  - `1/2/3` → Dashboard / Runway / Library tabs
+  - `g` → Guide tab
+  - `Esc` → close keyboard overlay; then close detail panel
+  - `?` → toggle keyboard shortcut overlay
+  - Listener ignores input/textarea/select focus
+- Keyboard overlay: modal with `<kbd>` chips, click-outside to dismiss
+- Onboarding empty state: when shortlist is empty, show "Track your first show" card with inline search form — on submit, pre-fills the discovery query and navigates to the Runway tab
+- TypeScript fix: `showDetail!.seasons.find(…)` in hoisted function declaration
+
+**New CSS classes:** `.keyboard-overlay`, `.keyboard-overlay-panel`, `.keyboard-overlay-title`, `.keyboard-shortcut-list`, `kbd`, `.keyboard-overlay-close`, `.onboarding-card`, `.onboarding-search`
+
+**Acceptance criteria status:**
+- ✅ Keyboard shortcuts work without focus trap
+- ✅ `?` overlay documents shortcuts
+- ✅ New-user empty state shows inline search
+- ✅ 40 tests pass
+- ✅ TypeScript: clean

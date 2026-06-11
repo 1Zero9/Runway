@@ -28,6 +28,8 @@ import Image from 'next/image'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { formatEpisodeLabel } from '@/lib/episode-label'
+import { buildShortlist } from '@/lib/shortlist'
+import type { WatchlistItem } from '@/lib/shortlist'
 import './runway.css'
 
 type Tab = 'tonight' | 'runway' | 'library' | 'settings' | 'guide'
@@ -108,6 +110,7 @@ type WatchingItem = {
   currentEpisode?: number
   tmdbId?: number | null
   posterPath?: string | null
+  leavingDate?: string | null
 }
 
 type TmdbShowDetail = {
@@ -263,14 +266,15 @@ function App() {
   const [pulsingItemId, setPulsingItemId] = useState<string | null>(null)
   const [timeFit, setTimeFit] = useState<TimeFit>('any')
   const [reconDismissed, setReconDismissed] = useState(false)
+  const [calendarToken, setCalendarToken] = useState<string | null>(null)
+  const [calendarTokenLoading, setCalendarTokenLoading] = useState(false)
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
   const refreshPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nowLineRef = useRef<HTMLDivElement>(null)
 
   const inProgressShows = watching
     .filter((i) => getWatchStatus(i) === 'watching')
     .sort((a, b) => (b.lastWatchedAt ?? '').localeCompare(a.lastWatchedAt ?? ''))
-
-  const shortlistItems = useMemo(() => deriveShortlist(watching, timeFit), [watching, timeFit])
 
   const reconItems = useMemo(() => {
     if (reconDismissed) return []
@@ -402,6 +406,30 @@ function App() {
       })
       .slice(0, 8)
   }, [now, trackedTitleSet, tvItems])
+
+  const shortlistItems = useMemo(() => {
+    const today = formatIrelandDate(now)
+    const tvTonightTitles = new Set(tvTonightTracked.map((e) => e.show.name))
+    const episodeCounts = new Map<string, { watched: number; total: number; avgRuntime?: number }>(
+      watching
+        .filter((item) => item.tmdbId && showDetailCache[item.tmdbId])
+        .map((item) => {
+          const detail = showDetailCache[item.tmdbId!]!
+          const currentSeason = item.currentSeason ?? 1
+          const currentEpisode = item.currentEpisode ?? 0
+          const watched = detail.seasons.reduce((sum, s) => {
+            if (s.seasonNumber < currentSeason) return sum + s.episodeCount
+            if (s.seasonNumber === currentSeason) return sum + currentEpisode
+            return sum
+          }, 0)
+          const avgRuntime = detail.episodeRunTime.length ? detail.episodeRunTime[0] : undefined
+          return [item.id, { watched, total: detail.numberOfEpisodes, avgRuntime }]
+        })
+    )
+    const userProviders = providers.filter((p) => p.enabled).flatMap((p) => p.match)
+    return buildShortlist(watching as WatchlistItem[], { today, tvTonightTitles, episodeCounts, userProviders }, timeFit)
+      .map((e) => ({ item: e.item as WatchingItem, reason: e.reason, action: e.action }))
+  }, [watching, timeFit, now, tvTonightTracked, showDetailCache, providers])
 
   const calendarEvents = useMemo(() => {
     const watchEvents = watching
@@ -644,6 +672,13 @@ function App() {
   }, [setWatching])
 
   useEffect(() => {
+    fetch('/api/calendar/token')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { token: string | null } | null) => { if (data) setCalendarToken(data.token) })
+      .catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
     const nav = window.navigator as Navigator & { standalone?: boolean }
     const isInstalled = window.matchMedia('(display-mode: standalone)').matches || Boolean(nav.standalone)
     setInstallState(isInstalled ? 'installed' : 'manual')
@@ -740,6 +775,19 @@ function App() {
     setChannelFilter('all')
   }
 
+  async function generateCalendarToken() {
+    setCalendarTokenLoading(true)
+    try {
+      const res = await fetch('/api/calendar/token', { method: 'POST' })
+      if (res.ok) {
+        const data = (await res.json()) as { token: string }
+        setCalendarToken(data.token)
+      }
+    } finally {
+      setCalendarTokenLoading(false)
+    }
+  }
+
   function refreshSources() {
     setToast('Refreshing sources...')
     setRefreshPulse(true)
@@ -827,7 +875,7 @@ function App() {
 
   async function updateWatchingItem(
     item: WatchingItem,
-    patch: Partial<Pick<WatchingItem, 'done' | 'lastWatchedAt' | 'status' | 'userRating' | 'watchedCount' | 'currentSeason' | 'currentEpisode' | 'tmdbId'>>,
+    patch: Partial<Pick<WatchingItem, 'done' | 'lastWatchedAt' | 'status' | 'userRating' | 'watchedCount' | 'currentSeason' | 'currentEpisode' | 'tmdbId' | 'leavingDate'>>,
     successMessage?: string,
   ) {
     setWatching((current) =>
@@ -1002,19 +1050,89 @@ function App() {
 
   async function handleEpisodeUpdate(item: WatchingItem, season: number, episode: number) {
     const detail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
+    let isFinished = false
     if (detail) {
       const lastSeason = detail.seasons[detail.seasons.length - 1]
       if (lastSeason && season >= lastSeason.seasonNumber && episode >= lastSeason.episodeCount) {
+        isFinished = true
         setPulsingItemId(item.id)
         setTimeout(() => setPulsingItemId((id) => (id === item.id ? null : id)), 700)
       }
     }
     await updateEpisode(item, season, episode)
+    if (isFinished && getWatchStatus(item) !== 'completed') {
+      await updateWatchingStatus(item, 'completed')
+      setToast('Finished — nice one.')
+    }
   }
+
+  async function updateLeavingDate(item: WatchingItem, date: string | null) {
+    setWatching((current) =>
+      current.map((row) => (row.id === item.id ? { ...row, leavingDate: date } : row)),
+    )
+    try {
+      const response = await fetch('/api/media-guide/watchlist', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, leavingDate: date }),
+      })
+      if (!response.ok) throw new Error()
+      const saved = (await response.json()) as WatchingItem
+      setWatching((current) => current.map((row) => (row.id === item.id ? saved : row)))
+    } catch {
+      // optimistic update stands
+    }
+  }
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const tag = (event.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      switch (event.key) {
+        case 'Escape':
+          if (showKeyboardHelp) { setShowKeyboardHelp(false); return }
+          if (detailItemId) { setDetailItemId(null); return }
+          break
+        case '?':
+          setShowKeyboardHelp((prev) => !prev)
+          break
+        case 'g':
+          setTab('guide')
+          break
+        case '1':
+          setTab('tonight')
+          break
+        case '2':
+          setTab('runway')
+          break
+        case '3':
+          setTab('library')
+          break
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [detailItemId, showKeyboardHelp])
 
   return (
     <main className="app-shell">
       {toast && <div className="toast">{toast}</div>}
+      {showKeyboardHelp && (
+        <div className="keyboard-overlay" role="dialog" aria-label="Keyboard shortcuts" onClick={() => setShowKeyboardHelp(false)}>
+          <div className="keyboard-overlay-panel" onClick={(e) => e.stopPropagation()}>
+            <h2 className="keyboard-overlay-title">Keyboard shortcuts</h2>
+            <dl className="keyboard-shortcut-list">
+              <div><dt><kbd>1</kbd></dt><dd>Dashboard</dd></div>
+              <div><dt><kbd>2</kbd></dt><dd>Runway</dd></div>
+              <div><dt><kbd>3</kbd></dt><dd>Library</dd></div>
+              <div><dt><kbd>G</kbd></dt><dd>Guide</dd></div>
+              <div><dt><kbd>Esc</kbd></dt><dd>Close panel</dd></div>
+              <div><dt><kbd>?</kbd></dt><dd>This overlay</dd></div>
+            </dl>
+            <button type="button" className="ep-catchup-dismiss keyboard-overlay-close" onClick={() => setShowKeyboardHelp(false)}>×</button>
+          </div>
+        </div>
+      )}
       <header className="topbar">
         <div className="topbar-brand">
           <h1 className="topbar-wordmark">Runway</h1>
@@ -1071,9 +1189,22 @@ function App() {
                 ))}
               </div>
             ) : (
-              <p className="dashboard-empty-hint">
-                Track your first show from the Library tab to get started.
-              </p>
+              <div className="onboarding-card">
+                <MonitorPlay size={28} />
+                <h3>Track your first show</h3>
+                <p>Search for something you&apos;re watching and Runway will surface it here.</p>
+                <form
+                  className="onboarding-search"
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    const val = (e.currentTarget.elements.namedItem('q') as HTMLInputElement).value.trim()
+                    if (val) { setDiscoveryQuery(val); setTab('runway') }
+                  }}
+                >
+                  <input name="q" placeholder="Search shows or films…" autoComplete="off" />
+                  <button type="submit">Search</button>
+                </form>
+              </div>
             )}
           </div>
 
@@ -1195,63 +1326,57 @@ function App() {
 
       {tab === 'guide' && (
         <section className="view">
-          <div className="tool-row">
-            <label className="field compact">
-              <CalendarDays size={17} />
-              <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
-            </label>
+          <div className="tool-row guide-tool-row">
             <label className="field search">
               <Search size={17} />
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search TV" />
             </label>
-            <label className="field compact">
-              <Filter size={17} />
-              <select value={channelFilter} onChange={(event) => setChannelFilter(event.target.value)}>
-                <option value="all">
-                  {channelMode === 'favorites' ? 'Favourite channels' : 'All channels'}
-                </option>
-                {channelOptions.map((channel) => (
-                  <option key={channel.id} value={channel.id}>
-                    {channel.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="segmented-actions time-scope" aria-label="Listing time range">
-              <button className={sportOnly ? 'active' : ''} type="button" onClick={() => setSportOnly((current) => !current)}>
-                Sport
-              </button>
-              <button
-                className={channelFilter !== 'all' && channelOptions.find((c) => c.id === channelFilter)?.name === dadChannelName ? 'active' : ''}
-                type="button"
-                onClick={() => {
-                  const dadChannel = channelOptions.find((c) => c.name === dadChannelName)
-                  if (dadChannel) {
-                    setChannelFilter((current) => current === dadChannel.id ? 'all' : dadChannel.id)
-                  }
-                }}
-              >
-                More4
-              </button>
-              <button
-                className={listingTimeMode === 'from_now' ? 'active' : ''}
-                type="button"
-                onClick={() => setListingTimeMode('from_now')}
-              >
-                From now
-              </button>
-              <button
-                className={listingTimeMode === 'full_day' ? 'active' : ''}
-                type="button"
-                onClick={() => setListingTimeMode('full_day')}
-              >
-                Full day
-              </button>
+            <div className="guide-tool-right">
+              <div className="segmented-actions" aria-label="Listing time range">
+                <button className={sportOnly ? 'active' : ''} type="button" onClick={() => setSportOnly((current) => !current)}>
+                  Sport
+                </button>
+                <button
+                  className={listingTimeMode === 'from_now' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setListingTimeMode('from_now')}
+                >
+                  From now
+                </button>
+                <button
+                  className={listingTimeMode === 'full_day' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setListingTimeMode('full_day')}
+                >
+                  Full day
+                </button>
+              </div>
+              <label className="field compact guide-date-field">
+                <CalendarDays size={17} />
+                <input type="date" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)} />
+              </label>
             </div>
           </div>
-          <div className="edit-channels-row">
-            <button className="edit-channels-link" type="button" onClick={() => setTab('settings')}>
-              Edit channels
+          <div className="guide-channel-bar">
+            <button
+              type="button"
+              className={channelFilter === 'all' ? 'guide-channel-chip active' : 'guide-channel-chip'}
+              onClick={() => setChannelFilter('all')}
+            >
+              {channelMode === 'favorites' ? 'Favourites' : 'All'}
+            </button>
+            {(channelMode === 'favorites' ? favoriteChannels : channelOptions).slice(0, 24).map((channel) => (
+              <button
+                key={channel.id}
+                type="button"
+                className={channelFilter === channel.id ? 'guide-channel-chip active' : 'guide-channel-chip'}
+                onClick={() => setChannelFilter((current) => current === channel.id ? 'all' : channel.id)}
+              >
+                {channel.name}
+              </button>
+            ))}
+            <button type="button" className="guide-channel-chip guide-channel-settings" onClick={() => setTab('settings')}>
+              <Settings size={13} />
             </button>
           </div>
           {tvError && <p className="notice error">{tvError}</p>}
@@ -1695,6 +1820,7 @@ function App() {
                           item={item}
                           showDetail={showDetail}
                           onUpdateEpisode={handleEpisodeUpdate}
+                          onUpdateLeavingDate={updateLeavingDate}
                         />
                       )}
                     </div>
@@ -1924,6 +2050,23 @@ function App() {
                 </button>
               </div>
             </div>
+            <div className="settings-roadmap">
+              <p className="eyebrow">Services</p>
+              <h2>Your streaming services</h2>
+              <p className="settings-help">Active services are surfaced in suggestions and the "Worth a look" section.</p>
+              <div className="provider-settings-row">
+                {providers.map((provider) => (
+                  <button
+                    key={provider.label}
+                    type="button"
+                    className={provider.enabled ? 'provider-settings-chip active' : 'provider-settings-chip'}
+                    onClick={() => toggleProvider(provider.label)}
+                  >
+                    {provider.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <h2>Data Sources</h2>
             <p>
               TV uses the Ireland XMLTV EPG feed. Streaming and cinema use TMDb with watch region IE through the protected server
@@ -1992,6 +2135,50 @@ function App() {
                   <span>Trakt or JustWatch-style availability sync</span>
                 </div>
               </div>
+            </div>
+            <div className="settings-roadmap">
+              <p className="eyebrow">Integration</p>
+              <h2>Calendar feed</h2>
+              <p className="settings-help">Subscribe in Google Calendar or Apple Calendar to see upcoming episodes, releases, and leaving-soon alerts.</p>
+              {calendarToken ? (
+                <div className="calendar-feed-row">
+                  <code className="calendar-url-display">
+                    {typeof window !== 'undefined' ? `${window.location.origin}/api/calendar/${calendarToken}.ics` : `/api/calendar/${calendarToken}.ics`}
+                  </code>
+                  <div className="calendar-feed-actions">
+                    <button
+                      type="button"
+                      className="ep-catchup-btn"
+                      onClick={() => {
+                        const url = `${window.location.origin}/api/calendar/${calendarToken}.ics`
+                        navigator.clipboard.writeText(url).then(() => setToast('Calendar URL copied'))
+                      }}
+                    >
+                      <Copy size={12} />
+                      Copy URL
+                    </button>
+                    <button
+                      type="button"
+                      className="ep-catchup-btn secondary"
+                      disabled={calendarTokenLoading}
+                      onClick={generateCalendarToken}
+                    >
+                      <RefreshCw size={12} />
+                      Regenerate
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="ep-catchup-btn"
+                  disabled={calendarTokenLoading}
+                  onClick={generateCalendarToken}
+                >
+                  <CalendarDays size={12} />
+                  {calendarTokenLoading ? 'Generating…' : 'Generate calendar URL'}
+                </button>
+              )}
             </div>
             <button className="primary-button secondary-action" type="button" onClick={logout}>
               Sign Out
@@ -2578,14 +2765,33 @@ function ShowDetailPanel({
   item,
   showDetail,
   onUpdateEpisode,
+  onUpdateLeavingDate,
 }: {
   item: WatchingItem
   showDetail: TmdbShowDetail | undefined
   onUpdateEpisode: (item: WatchingItem, season: number, episode: number) => void
+  onUpdateLeavingDate: (item: WatchingItem, date: string | null) => void
 }) {
+  const [pendingCatchup, setPendingCatchup] = useState<{ season: number; episode: number } | null>(null)
+  const [editingLeaving, setEditingLeaving] = useState(false)
+
+  const daysUntilLeaving = item.leavingDate
+    ? Math.ceil((new Date(item.leavingDate).getTime() - Date.now()) / 86400000)
+    : null
+
   if (!showDetail) {
     return (
       <div className="show-detail-panel">
+        <div className="show-detail-leaving">
+          <LeavingDateRow
+            item={item}
+            daysUntilLeaving={daysUntilLeaving}
+            editing={editingLeaving}
+            onEdit={() => setEditingLeaving(true)}
+            onSave={(date) => { onUpdateLeavingDate(item, date); setEditingLeaving(false) }}
+            onCancel={() => setEditingLeaving(false)}
+          />
+        </div>
         <p className="muted-copy">
           {item.tmdbId ? 'Loading episode data…' : 'Track from the Runway view to enable the episode grid.'}
         </p>
@@ -2599,15 +2805,45 @@ function ShowDetailPanel({
   const watched = computeWatchProgress(item, showDetail)
   const watchedCount = Math.round((watched / 100) * showDetail.numberOfEpisodes)
   const remainingEps = Math.max(0, showDetail.numberOfEpisodes - watchedCount)
-  const remainingHours = Math.round((remainingEps * avgRuntime) / 60)
+  const remainingMins = remainingEps * avgRuntime
+  const remainingLabel = remainingMins >= 60
+    ? `~${Math.round(remainingMins / 60)}h left`
+    : remainingMins > 0 ? `~${remainingMins} min left` : 'All watched'
+
+  function handleEpClick(season: number, ep: number, isWatched: boolean, isCurrent: boolean) {
+    if (isWatched) {
+      if (isCurrent) {
+        onUpdateEpisode(item, season, ep - 1)
+        setPendingCatchup(null)
+      }
+      return
+    }
+    const nextSeason = currentSeason
+    const nextEp = currentEpisode + 1
+    const isNextEp = season === nextSeason && ep === nextEp ||
+      (season === currentSeason + 1 && ep === 1 && currentEpisode >= (showDetail!.seasons.find(s => s.seasonNumber === currentSeason)?.episodeCount ?? 0))
+    if (isNextEp) {
+      onUpdateEpisode(item, season, ep)
+      setPendingCatchup(null)
+    } else {
+      setPendingCatchup(pendingCatchup?.season === season && pendingCatchup.episode === ep ? null : { season, episode: ep })
+    }
+  }
 
   return (
     <div className="show-detail-panel">
-      <div className="show-detail-summary">
+      <div className="show-detail-meta">
         <span className="episode-label">
-          {watchedCount}/{showDetail.numberOfEpisodes} EPISODES
-          {remainingHours > 0 ? ` · ~${remainingHours}H LEFT` : ''}
+          {watchedCount}/{showDetail.numberOfEpisodes} episodes · {remainingLabel}
         </span>
+        <LeavingDateRow
+          item={item}
+          daysUntilLeaving={daysUntilLeaving}
+          editing={editingLeaving}
+          onEdit={() => setEditingLeaving(true)}
+          onSave={(date) => { onUpdateLeavingDate(item, date); setEditingLeaving(false) }}
+          onCancel={() => setEditingLeaving(false)}
+        />
       </div>
       <div className="episode-grid">
         {showDetail.seasons.map((s) => (
@@ -2617,8 +2853,8 @@ function ShowDetailPanel({
               <button
                 type="button"
                 className="season-mark-btn"
-                aria-label={`Mark all of season ${s.seasonNumber} watched`}
-                onClick={() => onUpdateEpisode(item, s.seasonNumber, s.episodeCount)}
+                aria-label={`Mark season ${s.seasonNumber} watched`}
+                onClick={() => { onUpdateEpisode(item, s.seasonNumber, s.episodeCount); setPendingCatchup(null) }}
               >
                 <Check size={11} />
               </button>
@@ -2630,23 +2866,104 @@ function ShowDetailPanel({
                   s.seasonNumber < currentSeason ||
                   (s.seasonNumber === currentSeason && epNum <= currentEpisode)
                 const isCurrent = s.seasonNumber === currentSeason && epNum === currentEpisode
+                const isPending = pendingCatchup?.season === s.seasonNumber && pendingCatchup.episode === epNum
                 return (
                   <button
                     key={epNum}
                     type="button"
-                    className={isWatched ? 'ep-cell watched' : 'ep-cell'}
+                    className={[
+                      'ep-cell',
+                      isWatched ? 'watched' : '',
+                      isPending ? 'pending' : '',
+                    ].filter(Boolean).join(' ')}
                     aria-label={`S${s.seasonNumber} E${epNum}${isWatched ? ' (watched)' : ''}`}
-                    onClick={() =>
-                      onUpdateEpisode(item, s.seasonNumber, isCurrent ? epNum - 1 : epNum)
-                    }
+                    title={`E${epNum}`}
+                    onClick={() => handleEpClick(s.seasonNumber, epNum, isWatched, isCurrent)}
                   />
                 )
               })}
             </div>
+            {pendingCatchup?.season === s.seasonNumber && (
+              <div className="ep-catchup-bar">
+                <span className="ep-catchup-label">S{String(s.seasonNumber).padStart(2, '0')} E{String(pendingCatchup.episode).padStart(2, '0')}</span>
+                <button
+                  type="button"
+                  className="ep-catchup-btn"
+                  onClick={() => { onUpdateEpisode(item, pendingCatchup.season, pendingCatchup.episode); setPendingCatchup(null) }}
+                >
+                  <Check size={12} />
+                  Watched up to here
+                </button>
+                <button
+                  type="button"
+                  className="ep-catchup-btn secondary"
+                  onClick={() => { onUpdateEpisode(item, pendingCatchup.season, pendingCatchup.episode); setPendingCatchup(null) }}
+                >
+                  Just this episode
+                </button>
+                <button
+                  type="button"
+                  className="ep-catchup-dismiss"
+                  onClick={() => setPendingCatchup(null)}
+                >
+                  ×
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
     </div>
+  )
+}
+
+function LeavingDateRow({
+  item,
+  daysUntilLeaving,
+  editing,
+  onEdit,
+  onSave,
+  onCancel,
+}: {
+  item: WatchingItem
+  daysUntilLeaving: number | null
+  editing: boolean
+  onEdit: () => void
+  onSave: (date: string | null) => void
+  onCancel: () => void
+}) {
+  const [value, setValue] = useState(item.leavingDate ?? '')
+  const isUrgent = daysUntilLeaving !== null && daysUntilLeaving <= 7
+  if (editing) {
+    return (
+      <div className="leaving-edit">
+        <input
+          type="date"
+          className="leaving-date-input"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          autoFocus
+        />
+        <button type="button" className="ep-catchup-btn" onClick={() => onSave(value || null)}>
+          <Check size={12} /> Save
+        </button>
+        {item.leavingDate && (
+          <button type="button" className="ep-catchup-btn secondary" onClick={() => onSave(null)}>
+            Clear
+          </button>
+        )}
+        <button type="button" className="ep-catchup-dismiss" onClick={onCancel}>×</button>
+      </div>
+    )
+  }
+  return (
+    <button type="button" className={isUrgent ? 'leaving-chip urgent' : 'leaving-chip'} onClick={onEdit}>
+      {daysUntilLeaving !== null
+        ? isUrgent
+          ? `Leaving in ${daysUntilLeaving} day${daysUntilLeaving === 1 ? '' : 's'}`
+          : `Leaving ${formatShortDate(item.leavingDate!)}`
+        : 'Leaving soon?'}
+    </button>
   )
 }
 
@@ -2885,69 +3202,6 @@ function formatGreeting(date: Date): string {
     month: 'long',
     timeZone: 'Europe/Dublin',
   }).format(date)
-}
-
-function deriveShortlist(items: WatchingItem[], timeFit: TimeFit): ShortlistEntry[] {
-  const now = new Date()
-  const fourteenDaysAgo = new Date(now)
-  fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
-  const fourteenAgoStr = formatIrelandDate(fourteenDaysAgo)
-  const thirtyDaysAgo = new Date(now)
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  const thirtyAgoStr = formatIrelandDate(thirtyDaysAgo)
-
-  const eligible = items.filter((i) => !['completed', 'dropped'].includes(getWatchStatus(i)))
-  const filtered = timeFit === 'film' ? eligible.filter((i) => i.type === 'film') : eligible
-  const pool = filtered.length > 0 ? filtered : eligible
-
-  type Candidate = ShortlistEntry & { priority: number; lastWatched: string }
-  const candidates: Candidate[] = pool.map((item) => {
-    const status = getWatchStatus(item)
-    const epLabel =
-      item.type !== 'film' && item.type !== 'sport'
-        ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
-        : null
-
-    let priority = 50
-    let reason = ''
-    let action = ''
-
-    if (status === 'watching') {
-      const lw = item.lastWatchedAt ?? ''
-      if (lw >= fourteenAgoStr) {
-        priority = 10
-        reason = epLabel ? `Next: ${epLabel} · ${item.service}` : `Continue · ${item.service}`
-        action = epLabel ? `Mark ${epLabel} watched` : 'Mark watched'
-      } else if (lw >= thirtyAgoStr) {
-        priority = 20
-        reason = epLabel ? `Next: ${epLabel} · ${item.service}` : `Continue · ${item.service}`
-        action = epLabel ? `Mark ${epLabel} watched` : 'Mark watched'
-      } else {
-        priority = 30
-        reason = lw ? `Still going? Last watched ${formatShortDate(lw)}` : `Start watching · ${item.service}`
-        action = epLabel ? `Mark ${epLabel} watched` : 'Mark watched'
-      }
-    } else if (status === 'waiting') {
-      priority = 40
-      reason = `Waiting for new season · ${item.service}`
-      action = 'Start watching'
-    } else {
-      priority = 50
-      reason = `On your list · ${item.service}`
-      action = item.type === 'film' ? 'Start watching' : 'Start watching'
-    }
-
-    if ((timeFit === '30min' || timeFit === '1hour') && item.type === 'film') {
-      priority += 15
-    }
-
-    return { item, reason, action, priority, lastWatched: item.lastWatchedAt ?? '' }
-  })
-
-  return candidates
-    .sort((a, b) => a.priority !== b.priority ? a.priority - b.priority : b.lastWatched.localeCompare(a.lastWatched))
-    .map(({ item, reason, action }) => ({ item, reason, action }))
-    .slice(0, 5)
 }
 
 export default App
