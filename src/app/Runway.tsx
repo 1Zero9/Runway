@@ -64,6 +64,7 @@ type DiscoveryMediaType = 'all' | 'movie' | 'tv'
 type DiscoveryStatusFilter = 'all' | 'unselected' | RecommendationItem['status']
 type WatchStatus = 'planned' | 'watching' | 'waiting' | 'completed' | 'dropped'
 type WatchItemType = 'show' | 'film' | 'sport' | 'other'
+type LibraryFilter = 'all' | 'watching' | 'watchlisted' | 'finished' | 'favourites' | 'recommended' | 'abandoned'
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -302,6 +303,9 @@ function App() {
   const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [recentSearches, setRecentSearches] = useStoredState<string[]>('mediaguide.recentSearches', [])
+  const [libraryFilter, setLibraryFilter] = useStoredState<LibraryFilter>('mediaguide.libraryFilter', 'watching')
+  const [completionPrompt, setCompletionPrompt] = useState<WatchingItem | null>(null)
+  const [completionDismissed, setCompletionDismissed] = useStoredState<string[]>('mediaguide.completionDismissed', [])
   const refreshPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nowLineRef = useRef<HTMLDivElement>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -414,15 +418,29 @@ function App() {
       return matchesChannel && matchesMode && matchesTerm && matchesSport && matchesTime
     })
   }, [channelFilter, channelMode, favoriteChannelSet, listingTimeMode, now, query, selectedDate, sportOnly, tvItems])
+  const filteredLibraryItems = useMemo(() => {
+    if (libraryFilter === 'all') return watching
+    return watching.filter((item) => {
+      const rel = item.relationship ?? statusToRelationship(item.status, item.done)
+      if (libraryFilter === 'watching') return rel === 'tracking'
+      if (libraryFilter === 'watchlisted') return rel === 'watchlisted'
+      if (libraryFilter === 'finished') return rel === 'finished'
+      if (libraryFilter === 'favourites') return Boolean(item.favouritedAt)
+      if (libraryFilter === 'recommended') return Boolean(item.recommendedAt)
+      if (libraryFilter === 'abandoned') return rel === 'abandoned'
+      return true
+    })
+  }, [watching, libraryFilter])
+
   const watchGroups = useMemo(
     () =>
       watchStatusOrder
         .map((status) => ({
           status,
-          items: watching.filter((item) => getWatchStatus(item) === status),
+          items: filteredLibraryItems.filter((item) => getWatchStatus(item) === status),
         }))
         .filter((group) => group.items.length),
-    [watching],
+    [filteredLibraryItems],
   )
   const trackedTitleSet = useMemo(
     () => new Set(watching.map((item) => normalizeTitle(item.title))),
@@ -465,6 +483,17 @@ function App() {
     return buildShortlist(watching as WatchlistItem[], { today, tvTonightTitles, episodeCounts, userProviders }, timeFit)
       .map((e) => ({ item: e.item as WatchingItem, reason: e.reason, action: e.action }))
   }, [watching, timeFit, now, tvTonightTracked, showDetailCache, providers])
+
+  const topItemTmdbId = useMemo(() => {
+    const top = shortlistItems[0]?.item
+    if (!top?.tmdbId || top.type === 'film') return null
+    return top.tmdbId
+  }, [shortlistItems])
+
+  const heroBackdropPath = useMemo(
+    () => (topItemTmdbId ? showDetailCache[topItemTmdbId]?.backdropPath ?? null : null),
+    [topItemTmdbId, showDetailCache],
+  )
 
   const calendarEvents = useMemo(() => {
     const watchEvents = watching
@@ -582,6 +611,18 @@ function App() {
       { label: 'Coming up', items: countdownItems.filter((i) => i.date > monthStr) },
     ].filter((g) => g.items.length > 0)
   }, [countdownItems])
+
+  const mastheadLine = useMemo(() => {
+    const inProgress = watching.filter((i) => getWatchStatus(i) === 'watching').length
+    const soonItem = countdownItems.find((i) => i.days <= 7)
+    const parts: string[] = []
+    if (inProgress > 0) parts.push(`${inProgress} show${inProgress === 1 ? '' : 's'} on the go`)
+    if (soonItem) {
+      const when = soonItem.days === 0 ? 'out today' : soonItem.days === 1 ? 'out tomorrow' : 'out this week'
+      parts.push(`${soonItem.title} is ${when}`)
+    }
+    return parts.join(' · ')
+  }, [watching, countdownItems])
 
   useEffect(() => {
     let ignore = false
@@ -743,6 +784,18 @@ function App() {
   }, [])
 
   useEffect(() => {
+    if (!topItemTmdbId || showDetailCache[topItemTmdbId]) return
+    fetch(`/api/media-guide/show-details?id=${topItemTmdbId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: TmdbShowDetail | null) => {
+        if (data) setShowDetailCache((c) => ({ ...c, [data.id]: data }))
+      })
+      .catch(() => undefined)
+  // showDetailCache intentionally excluded — we only want to re-run when the top item changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topItemTmdbId])
+
+  useEffect(() => {
     const nav = window.navigator as Navigator & { standalone?: boolean }
     const isInstalled = window.matchMedia('(display-mode: standalone)').matches || Boolean(nav.standalone)
     setInstallState(isInstalled ? 'installed' : 'manual')
@@ -858,7 +911,7 @@ function App() {
     setTmdbRefreshNonce((current) => current + 1)
   }
 
-  async function persistWatchingItem(item: WatchingItem) {
+  async function persistWatchingItem(item: WatchingItem, onSaved?: (saved: WatchingItem) => void) {
     if (watching.some((row) => normalizeTitle(row.title) === normalizeTitle(item.title))) {
       setToast(`${item.title} is already in My List`)
       return
@@ -876,6 +929,7 @@ function App() {
     setWatching((current) => current.map((row) => (row.id === item.id ? saved : row)))
     setWatchlistSource('neon')
     showToast(`${item.title} added`, () => removeWatching(saved.id))
+    onSaved?.(saved)
   }
 
   async function addWatching(event: FormEvent<HTMLFormElement>) {
@@ -1186,7 +1240,6 @@ function App() {
       current.map((row) => (row.id === item.id ? (result.data as WatchingItem) : row)),
     )
     showToast(relationshipLabel(to), async () => {
-      // Undo: revert to prior relationship
       setWatching((current) =>
         current.map((row) =>
           row.id === item.id ? { ...row, relationship: priorRelationship, status: priorStatus, done: priorDone } : row,
@@ -1194,6 +1247,9 @@ function App() {
       )
       await watchlistSetRelationship(item.id, priorRelationship)
     })
+    if (to === 'finished' && !completionDismissed.includes(item.id)) {
+      setCompletionPrompt(result.data as WatchingItem)
+    }
   }
 
   async function seenIt(item: WatchingItem, tmdbDetail?: { seasons: { seasonNumber: number; episodeCount: number }[] }) {
@@ -1229,6 +1285,7 @@ function App() {
     setWatching((current) => current.map((row) => (row.id === item.id ? (result.data as WatchingItem) : row)))
     showToast(`${item.title} — finished`)
     setWatchlistSource('neon')
+    if (!completionDismissed.includes(item.id)) setCompletionPrompt(result.data as WatchingItem)
   }
 
   async function seenItFromSearch(tmdbItem: TmdbItem) {
@@ -1239,7 +1296,9 @@ function App() {
       done: true,
       lastWatchedAt: formatIrelandDate(new Date()),
     }
-    await persistWatchingItem(newItem)
+    await persistWatchingItem(newItem, (saved) => {
+      if (!completionDismissed.includes(saved.id)) setCompletionPrompt(saved)
+    })
   }
 
   async function toggleFavourite(item: WatchingItem) {
@@ -1269,6 +1328,34 @@ function App() {
       const next = [q, ...prev.filter((s) => s !== q)].slice(0, 5)
       return next
     })
+  }
+
+  function dismissCompletionPrompt() {
+    if (completionPrompt) {
+      setCompletionDismissed((prev) =>
+        prev.includes(completionPrompt.id) ? prev : [...prev, completionPrompt.id],
+      )
+    }
+    setCompletionPrompt(null)
+  }
+
+  async function recommendFromCompletion(item: WatchingItem, listId: string | null) {
+    const result = await recommendationsAddItem({
+      listId,
+      tmdbId: item.tmdbId ?? null,
+      mediaType: item.type === 'film' ? 'movie' : 'tv',
+      status: 'recommend',
+      title: item.title,
+      service: item.service,
+      posterPath: item.posterPath ?? null,
+      overview: item.notes ?? '',
+    })
+    if (result.ok) {
+      setRecommendationItems((current) => [result.data as RecommendationItem, ...current])
+      showToast(`${item.title} recommended`)
+    } else {
+      showToast(result.error)
+    }
   }
 
   useEffect(() => {
@@ -1330,6 +1417,18 @@ function App() {
           )}
         </div>
       )}
+      {completionPrompt && (() => {
+        const liveItem = watching.find((i) => i.id === completionPrompt.id) ?? completionPrompt
+        return (
+          <CompletionPromptCard
+            item={liveItem}
+            lists={recommendationLists}
+            onFavourite={() => { void toggleFavourite(liveItem) }}
+            onRecommend={(listId) => { void recommendFromCompletion(liveItem, listId); dismissCompletionPrompt() }}
+            onDismiss={dismissCompletionPrompt}
+          />
+        )
+      })()}
       {searchOpen && (
         <SearchOverlay
           watching={watching}
@@ -1390,58 +1489,74 @@ function App() {
 
       {tab === 'tonight' && (
         <section className="view dashboard">
-          {/* Greeting */}
-          <div className="dashboard-greeting">
-            <h2 className="greeting-date">{formatGreeting(now)}</h2>
-          </div>
-
-          {/* Time-fit chips */}
-          <div className="time-fit-bar" role="group" aria-label="How much time do you have?">
-            {(['any', '30min', '1hour', 'film'] as TimeFit[]).map((fit) => (
-              <button
-                key={fit}
-                className={timeFit === fit ? 'time-fit-chip active' : 'time-fit-chip'}
-                type="button"
-                onClick={() => setTimeFit(fit)}
-              >
-                {fit === 'any' ? 'Anything' : fit === '30min' ? '30 min' : fit === '1hour' ? '1 hour' : 'Film night'}
-              </button>
-            ))}
-          </div>
-
-          {/* Shortlist */}
-          <div className="dashboard-section">
-            <h2 className="dashboard-section-header">Shortlist</h2>
-            {shortlistItems.length > 0 ? (
-              <div className="shortlist-rail">
-                {shortlistItems.map((entry) => (
-                  <ShortlistCard
-                    key={entry.item.id}
-                    entry={entry}
-                    showDetail={entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined}
-                    onMarkWatched={() => markWatched(entry.item)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="onboarding-card">
-                <MonitorPlay size={28} />
-                <h3>Track your first show</h3>
-                <p>Search for something you&apos;re watching and Runway will surface it here.</p>
-                <form
-                  className="onboarding-search"
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    const val = (e.currentTarget.elements.namedItem('q') as HTMLInputElement).value.trim()
-                    if (val) { setDiscoveryQuery(val); setTab('runway') }
-                  }}
-                >
-                  <input name="q" placeholder="Search shows or films…" autoComplete="off" />
-                  <button type="submit">Search</button>
-                </form>
+          <div className={heroBackdropPath ? 'dashboard-hero-wrap has-backdrop' : 'dashboard-hero-wrap'}>
+            {heroBackdropPath && (
+              <div className="dashboard-hero-bg" aria-hidden>
+                <Image
+                  key={heroBackdropPath}
+                  src={`https://image.tmdb.org/t/p/w1280${heroBackdropPath}`}
+                  alt=""
+                  width={1280}
+                  height={720}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  priority
+                />
               </div>
             )}
-          </div>
+            {/* Greeting */}
+            <div className="dashboard-greeting">
+              <h2 className="greeting-date">{formatGreeting(now)}</h2>
+              {mastheadLine && <p className="greeting-masthead">{mastheadLine}</p>}
+            </div>
+
+            {/* Time-fit chips */}
+            <div className="time-fit-bar" role="group" aria-label="How much time do you have?">
+              {(['any', '30min', '1hour', 'film'] as TimeFit[]).map((fit) => (
+                <button
+                  key={fit}
+                  className={timeFit === fit ? 'time-fit-chip active' : 'time-fit-chip'}
+                  type="button"
+                  onClick={() => setTimeFit(fit)}
+                >
+                  {fit === 'any' ? 'Anything' : fit === '30min' ? '30 min' : fit === '1hour' ? '1 hour' : 'Film night'}
+                </button>
+              ))}
+            </div>
+
+            {/* Shortlist */}
+            <div className="dashboard-section">
+              <h2 className="dashboard-section-header">Shortlist</h2>
+              {shortlistItems.length > 0 ? (
+                <div className="shortlist-rail">
+                  {shortlistItems.map((entry) => (
+                    <ShortlistCard
+                      key={entry.item.id}
+                      entry={entry}
+                      showDetail={entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined}
+                      onMarkWatched={() => markWatched(entry.item)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="onboarding-card">
+                  <MonitorPlay size={28} />
+                  <h3>Track your first show</h3>
+                  <p>Search for something you&apos;re watching and Runway will surface it here.</p>
+                  <form
+                    className="onboarding-search"
+                    onSubmit={(e) => {
+                      e.preventDefault()
+                      const val = (e.currentTarget.elements.namedItem('q') as HTMLInputElement).value.trim()
+                      if (val) { setDiscoveryQuery(val); setTab('runway') }
+                    }}
+                  >
+                    <input name="q" placeholder="Search shows or films…" autoComplete="off" />
+                    <button type="submit">Search</button>
+                  </form>
+                </div>
+              )}
+            </div>
+          </div> {/* end dashboard-hero-wrap */}
 
           {/* Reconciliation */}
           {reconItems.length > 0 && (
@@ -1868,6 +1983,26 @@ function App() {
           {inProgressShows.length > 0 && (
             <UpNextRail items={inProgressShows} onMarkWatched={markWatched} />
           )}
+          <div className="library-filter-bar" role="group" aria-label="Filter your library">
+            {([
+              ['all', 'All'],
+              ['watching', 'Watching'],
+              ['watchlisted', 'Watchlist'],
+              ['finished', 'Finished'],
+              ['favourites', 'Favourites'],
+              ['recommended', 'Recommended'],
+              ['abandoned', 'Abandoned'],
+            ] as [LibraryFilter, string][]).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={libraryFilter === value ? 'library-filter-chip active' : 'library-filter-chip'}
+                onClick={() => setLibraryFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <form className="add-form" onSubmit={addWatching}>
             <input name="title" placeholder="Programme or film" required />
             <div className="form-grid">
@@ -2017,6 +2152,20 @@ function App() {
                                 aria-label="Next season"
                                 onClick={() => updateEpisode(item, (item.currentSeason ?? 1) + 1, 1)}
                               >S+</button>
+                            </div>
+                          )}
+                          {watchStatus === 'dropped' && (
+                            <div className="abandoned-meta">
+                              {item.lastWatchedAt
+                                ? `Dropped after ${formatShortDate(item.lastWatchedAt)}`
+                                : 'Dropped'}
+                              <button
+                                type="button"
+                                className="pickup-btn"
+                                onClick={() => transitionRelationship(item, 'tracking')}
+                              >
+                                ▶ Pick it back up
+                              </button>
                             </div>
                           )}
                           <div className="watch-feedback-row">
@@ -3493,6 +3642,64 @@ function formatGreeting(date: Date): string {
     month: 'long',
     timeZone: 'Europe/Dublin',
   }).format(date)
+}
+
+// ─── Completion Prompt (Phase 4) ──────────────────────────────────────────────
+
+function CompletionPromptCard({
+  item,
+  lists,
+  onFavourite,
+  onRecommend,
+  onDismiss,
+}: {
+  item: WatchingItem
+  lists: RecommendationList[]
+  onFavourite: () => void
+  onRecommend: (listId: string | null) => void
+  onDismiss: () => void
+}) {
+  const [showPicker, setShowPicker] = useState(false)
+  const isFav = Boolean(item.favouritedAt)
+  return (
+    <div className="completion-card" role="complementary" aria-label="Completion actions">
+      <div className="completion-card-head">
+        <span className="completion-card-msg">
+          You finished <strong>{item.title}</strong>
+        </span>
+        <button type="button" className="ep-catchup-dismiss" onClick={onDismiss} aria-label="Dismiss">×</button>
+      </div>
+      <div className="completion-card-actions">
+        <button
+          type="button"
+          className={isFav ? 'completion-action completion-action-on' : 'completion-action'}
+          onClick={onFavourite}
+        >
+          <Heart size={14} fill={isFav ? 'currentColor' : 'none'} />
+          {isFav ? 'Favourited' : 'Favourite'}
+        </button>
+        {showPicker ? (
+          <div className="completion-list-picker">
+            <select
+              autoFocus
+              defaultValue=""
+              onChange={(e) => { onRecommend(e.target.value || null); setShowPicker(false) }}
+            >
+              <option value="" disabled>Pick a list…</option>
+              <option value="">Inbox (no list)</option>
+              {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+            <button type="button" className="ep-catchup-dismiss" onClick={() => setShowPicker(false)}>×</button>
+          </div>
+        ) : (
+          <button type="button" className="completion-action" onClick={() => setShowPicker(true)}>
+            <Send size={14} />
+            Recommend
+          </button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ─── Search Overlay (Phase 3) ─────────────────────────────────────────────────

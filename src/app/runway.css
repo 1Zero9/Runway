@@ -4021,3 +4021,201 @@ kbd {
   .search-overlay,
   .search-overlay-panel { animation: none; }
 }
+
+/* ─── Controls Phase 4 — Completion prompt ──────────────────────────────────── */
+
+.completion-card {
+  position: fixed;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 12px 16px;
+  max-width: 480px;
+  width: calc(100% - 32px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.completion-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.completion-card-msg {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+
+.completion-card-msg strong { color: var(--ink); }
+
+.completion-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.completion-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 120ms;
+}
+
+.completion-action:hover { background: var(--line); }
+
+.completion-action.completion-action-on {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+}
+
+.completion-list-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.completion-list-picker select {
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .completion-card { animation: toast-up 200ms ease both; }
+}
+
+/* ─── Controls Phase 4 — Library filter bar ─────────────────────────────────── */
+
+.library-filter-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 8px 16px 4px;
+  margin: 0 -16px;
+}
+
+.library-filter-bar::-webkit-scrollbar { display: none; }
+
+.library-filter-chip {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms, color 120ms;
+}
+
+.library-filter-chip:hover {
+  background: var(--surface-sunken);
+  color: var(--ink);
+}
+
+.library-filter-chip.active {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* ─── Controls Phase 4 — Abandoned section ──────────────────────────────────── */
+
+.abandoned-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  margin: 4px 0;
+}
+
+.pickup-btn {
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 120ms;
+}
+
+.pickup-btn:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+/* ─── Controls Phase 5 — Ambient hero backdrop ───────────────────────────────── */
+
+.dashboard-hero-wrap {
+  position: relative;
+}
+
+.dashboard-hero-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.dashboard-hero-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(48px) saturate(1.3);
+  transform: scale(1.15);
+  opacity: 0.14;
+  transition: opacity 400ms ease;
+}
+
+.dashboard-hero-wrap.has-backdrop::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 40%;
+  z-index: 0;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+  pointer-events: none;
+}
+
+.dashboard-hero-wrap > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Controls Phase 5 — Masthead moment ─────────────────────────────────────── */
+
+.greeting-masthead {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: var(--fs-lg);
+  color: var(--ink-soft);
+  margin-top: 4px;
+  font-weight: 400;
+  line-height: 1.35;
+}

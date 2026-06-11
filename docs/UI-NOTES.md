@@ -725,6 +725,96 @@ All tables get `user_id` defaulting to 'steve' via `RUNWAY_USER_ID` constant.
 
 ---
 
+## CONTROLS Phase 4 (Seen → Favourite → Recommend) ✅
+
+**Adapted from RUNWAY-CONTROLS.md Phase 4**
+
+**Completion prompt card:**
+
+`CompletionPromptCard` component — appears fixed at bottom-centre whenever a title reaches `finished` (via `transitionRelationship`, `seenIt`, or `seenItFromSearch`). One-time per title (dismissal IDs stored in `mediaguide.completionDismissed` via `useStoredState`). Auto-derives `isFav` state from live `watching` array (not captured closure) to reflect in-flight favourite toggles.
+
+Actions:
+- **♥ Favourite** — calls `toggleFavourite`, card stays open so user can also recommend
+- **📣 Recommend** — tap opens inline `<select>` list picker (inbox option + named lists). On selection, calls `recommendFromCompletion(item, listId)` which POSTs to `/api/media-guide/recommendations`, then dismisses the card
+- **×** — dismisses and adds item ID to `completionDismissed` (never shown again for this title)
+
+Trigger points wired:
+- `transitionRelationship(item, 'finished')` → on success, if not dismissed
+- `seenIt(item)` → on success, if not dismissed
+- `seenItFromSearch(item)` → `persistWatchingItem` gains optional `onSaved` callback, called with server-returned item
+
+**Library filter bar:**
+
+Horizontally scrollable quiet chip strip above the add form in the Library tab. Chips: All / Watching / Watchlist / Finished / Favourites / Recommended / Abandoned. Default: Watching (stored in `mediaguide.libraryFilter`).
+
+`filteredLibraryItems` memo applies the filter by deriving relationship from `item.relationship ?? statusToRelationship(item.status, item.done)`:
+- `watching` → tracking relationship
+- `watchlisted` → watchlisted relationship
+- `finished` → finished relationship
+- `favourites` → `Boolean(item.favouritedAt)`
+- `recommended` → `Boolean(item.recommendedAt)`
+- `abandoned` → abandoned relationship
+- `all` → passthrough
+
+`watchGroups` now uses `filteredLibraryItems` instead of raw `watching`, so the status groups within the Library list reflect the active filter.
+
+**Abandoned section:**
+
+Dropped items show an `.abandoned-meta` row: "Dropped after [date]" + `.pickup-btn` CTA "▶ Pick it back up" which calls `transitionRelationship(item, 'tracking')`.
+
+**New CSS:** `.completion-card`, `.completion-card-head`, `.completion-card-msg`, `.completion-card-actions`, `.completion-action`, `.completion-action-on`, `.completion-list-picker`, `.library-filter-bar`, `.library-filter-chip`, `.library-filter-chip.active`, `.abandoned-meta`, `.pickup-btn`
+
+**Acceptance criteria:**
+- ✅ Finish a show → completion card appears with Favourite + Recommend actions
+- ✅ Card never shown again for same title after dismiss
+- ✅ Recommend → inline list picker → adds to recommendations table
+- ✅ Library filter bar: 7 chips, default Watching, stored in localStorage
+- ✅ Abandoned items show last-watched date + "Pick it back up" CTA
+- ✅ TypeScript: clean
+- ✅ 87 tests pass
+
+---
+
+## CONTROLS Phase 5 (The Wow pass — ambient atmosphere) ✅
+
+**Adapted from RUNWAY-CONTROLS.md Phase 5**
+
+**Ambient hero backdrop:**
+
+`topItemTmdbId` memo — derives from `shortlistItems[0]?.item` (skips films since `/show-details` is TV-only). Auto-fetch effect runs when `topItemTmdbId` changes and the detail isn't already cached, lazily populating `showDetailCache` for the top item.
+
+`heroBackdropPath` memo — reads `showDetailCache[topItemTmdbId]?.backdropPath`, null if unavailable.
+
+`.dashboard-hero-wrap` now wraps the greeting, time-fit chips, and shortlist section. When `heroBackdropPath` is set, `.has-backdrop` class adds:
+- `.dashboard-hero-bg` — absolute inset, `overflow: hidden`
+- `<Image key={heroBackdropPath}>` — w1280 TMDb backdrop, `priority` flag for LCP
+- CSS: `filter: blur(48px) saturate(1.3); transform: scale(1.15); opacity: 0.14` — washed to ~14% strength
+- `.has-backdrop::after` pseudo-element — gradient overlay, `transparent → var(--bg)` over bottom 40%, dissolves the blur into the page background
+- All `.dashboard-hero-wrap > *` get `position: relative; z-index: 1` so content sits above the backdrop
+
+`key={heroBackdropPath}` on the Image triggers a React remount when the top show changes, which causes the browser to fade in the new image.
+
+**Masthead moment:**
+
+`mastheadLine` memo — generates a one-liner from live dashboard data:
+- `"N shows on the go"` from watching count
+- `"[Title] is out today/tomorrow/this week"` from first countdown item ≤7 days
+- Joined with " · "
+
+Rendered as `.greeting-masthead` (Fraunces, `--fs-lg`, `--ink-soft`) below the date in `.dashboard-greeting`.
+
+**New CSS:** `.dashboard-hero-wrap`, `.dashboard-hero-bg`, `.dashboard-hero-bg img`, `.has-backdrop::after`, `.greeting-masthead`
+
+**Acceptance criteria:**
+- ✅ Top shortlist item's backdrop auto-fetched on first dashboard load
+- ✅ Backdrop: ~14% opacity, heavy blur, gradient dissolve at bottom — text legible (AAA)
+- ✅ Masthead line generated from live data
+- ✅ No backdrop → wrap is transparent (no visual change to layout)
+- ✅ TypeScript: clean
+- ✅ 87 tests pass
+
+---
+
 ## CONTROLS Phase 1 (Title state model) ✅
 
 **Adapted from RUNWAY-CONTROLS.md Phase 1**
