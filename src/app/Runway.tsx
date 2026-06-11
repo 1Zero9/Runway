@@ -417,6 +417,66 @@ function App() {
     [discoveryGenreId, discoveryQuery, discoveryStatusByKey, discoveryStatusFilter, filteredCinemaItems],
   )
 
+  const activeWatchingItems = useMemo(
+    () => watching.filter((i) => !['completed', 'dropped'].includes(getWatchStatus(i))),
+    [watching],
+  )
+
+  const countdownItems = useMemo(() => {
+    const today = formatIrelandDate(new Date())
+    const cinemaItems = cinema
+      .filter((i) => i.release_date && i.release_date >= today)
+      .map((i) => {
+        const days = getDaysUntil(i.release_date as string)
+        return {
+          kind: 'cinema' as const,
+          id: `cinema-${i.id}`,
+          title: i.title ?? i.name ?? 'Untitled',
+          posterPath: i.poster_path,
+          date: i.release_date as string,
+          days,
+          chip: days === 0 ? 'TODAY' : days === 1 ? 'TOMORROW' : `${days} DAYS`,
+          dominantColour: dominantColourByKey.get(getTmdbItemKey(i)) ?? null,
+          tmdbItem: i,
+        }
+      })
+    const watchItems = activeWatchingItems
+      .filter((i) => i.nextEpisode >= today)
+      .map((i) => {
+        const days = getDaysUntil(i.nextEpisode)
+        const seasonPrefix =
+          i.type !== 'film' && i.type !== 'sport' && i.currentSeason
+            ? `S${String(i.currentSeason).padStart(2, '0')} · `
+            : ''
+        const dayStr = days === 0 ? 'TODAY' : days === 1 ? 'TOMORROW' : `${days} DAYS`
+        return {
+          kind: 'watch' as const,
+          id: `watch-${i.id}`,
+          title: i.title,
+          posterPath: null as null,
+          date: i.nextEpisode,
+          days,
+          chip: `${seasonPrefix}${dayStr}`,
+          dominantColour: null as null,
+          watchItem: i,
+        }
+      })
+    return [...cinemaItems, ...watchItems].sort((a, b) => a.date.localeCompare(b.date))
+  }, [activeWatchingItems, cinema, dominantColourByKey])
+
+  const countdownGroups = useMemo(() => {
+    const today = new Date()
+    const weekDate = new Date(today); weekDate.setDate(today.getDate() + 7)
+    const monthDate = new Date(today); monthDate.setDate(today.getDate() + 30)
+    const weekStr = formatIrelandDate(weekDate)
+    const monthStr = formatIrelandDate(monthDate)
+    return [
+      { label: 'Out this week', items: countdownItems.filter((i) => i.date <= weekStr) },
+      { label: 'This month', items: countdownItems.filter((i) => i.date > weekStr && i.date <= monthStr) },
+      { label: 'Coming up', items: countdownItems.filter((i) => i.date > monthStr) },
+    ].filter((g) => g.items.length > 0)
+  }, [countdownItems])
+
   useEffect(() => {
     let ignore = false
     async function loadSchedule() {
@@ -1105,112 +1165,154 @@ function App() {
 
       {tab === 'runway' && (
         <section className="view">
-          {suggestions.length > 0 && (
-            <div className="home-section">
-              <p className="home-section-label">
-                <Sparkles size={14} />
-                Suggested for you
-              </p>
-              <div className="suggestion-strip">
-                {suggestions.slice(0, 6).map((item) => (
-                  <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
-                    {item.poster_path ? (
-                      <Image
-                        src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
-                        alt=""
-                        width={44}
-                        height={64}
-                        style={{ width: '44px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block' }}
-                        placeholder="blur"
-                        blurDataURL={makePosterBlur(null)}
-                      />
-                    ) : (
-                      <div className="poster-fallback">
-                        <MonitorPlay size={18} />
-                      </div>
-                    )}
-                    <div className="suggestion-info">
-                      <strong>{item.title ?? item.name}</strong>
-                      <span>{item.provider}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="icon-button quiet"
-                      aria-label={`Track ${item.title ?? item.name}`}
-                      onClick={() => persistWatchingItem(mediaToWatchingItem(item))}
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </article>
+          {/* Countdown stream */}
+          {countdownGroups.map((group) => (
+            <div key={group.label} className="countdown-group">
+              <p className="countdown-group-label">{group.label}</p>
+              <div className="countdown-cards">
+                {group.items.map((item) => (
+                  <CountdownCard
+                    key={item.id}
+                    chip={item.chip}
+                    days={item.days}
+                    dominantColour={item.dominantColour}
+                    posterPath={item.posterPath}
+                    title={item.title}
+                  />
                 ))}
               </div>
             </div>
+          ))}
+          {countdownGroups.length === 0 && !tmdbLoading && (
+            <EmptyState title="Nothing upcoming" detail="Add shows to My List or load cinema releases to build the countdown." />
           )}
 
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Netflix, Prime, Apple TV+, Paramount+, Sky / NOW</p>
-              <h2>Streaming in Ireland</h2>
-              {tmdbRefreshedAt && <span className="refresh-note">Updated {formatTime(tmdbRefreshedAt)}</span>}
-              {tmdbError && <span className="refresh-note error-note">{tmdbError}</span>}
+          {/* Watchlist poster grid */}
+          {activeWatchingItems.length > 0 && (
+            <div className="view-section">
+              <div className="section-heading compact-heading">
+                <div>
+                  <p className="eyebrow">In progress</p>
+                  <h2>Watching</h2>
+                </div>
+                <Star size={19} />
+              </div>
+              <WatchlistGrid
+                items={activeWatchingItems}
+                onMarkWatched={markWatched}
+                onRemove={removeWatching}
+              />
             </div>
-            <button
-              className={
-                tmdbLoading || refreshPulse
-                  ? 'icon-button quiet refresh-button refreshing'
-                  : 'icon-button quiet refresh-button'
-              }
-              type="button"
-              disabled={tmdbLoading}
-              aria-label="Refresh streaming sources"
-              onClick={refreshSources}
-            >
-              <RefreshCw className={tmdbLoading || refreshPulse ? 'spin' : ''} size={18} />
-            </button>
-          </div>
-          <DiscoveryFilters
-            discoveryGenreId={discoveryGenreId}
-            discoveryMediaType={discoveryMediaType}
-            discoveryQuery={discoveryQuery}
-            discoveryStatusFilter={discoveryStatusFilter}
-            genreOptions={genreOptions}
-            onGenreChange={setDiscoveryGenreId}
-            onMediaTypeChange={setDiscoveryMediaType}
-            onPosterScaleChange={setPosterScale}
-            onQueryChange={setDiscoveryQuery}
-            onStatusFilterChange={setDiscoveryStatusFilter}
-            posterScale={posterScale}
-            showMediaType
-          />
-          <div className="provider-row">
-            {providers.map((provider) => (
-              <button
-                className={provider.enabled ? 'provider active' : 'provider'}
-                key={provider.label}
-                type="button"
-                onClick={() => toggleProvider(provider.label)}
-              >
-                <Filter size={15} />
-                {provider.label}
-              </button>
-            ))}
-          </div>
-          <MediaGrid
-            dominantColourByKey={dominantColourByKey}
-            genreMap={genreMap}
-            items={visibleStreamingItems}
-            onAction={addRecommendation}
-            onTrack={(item) => persistWatchingItem(mediaToWatchingItem(item))}
-            posterScale={posterScale}
-            statusByKey={discoveryStatusByKey}
-            trackedTitleSet={trackedTitleSet}
-          />
-          {!tmdbLoading && visibleStreamingItems.length === 0 && (
-            <EmptyState
-              title="No titles for the selected services"
-              detail="Turn a provider back on, restore hidden categories, or tap refresh."
-            />
           )}
+
+          {/* Discover — streaming + cinema browse */}
+          <div className="view-section">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Netflix, Prime, Apple TV+, Paramount+, Sky / NOW</p>
+                <h2>Streaming in Ireland</h2>
+                {tmdbRefreshedAt && <span className="refresh-note">Updated {formatTime(tmdbRefreshedAt)}</span>}
+                {tmdbError && <span className="refresh-note error-note">{tmdbError}</span>}
+              </div>
+              <button
+                className={
+                  tmdbLoading || refreshPulse
+                    ? 'icon-button quiet refresh-button refreshing'
+                    : 'icon-button quiet refresh-button'
+                }
+                type="button"
+                disabled={tmdbLoading}
+                aria-label="Refresh streaming sources"
+                onClick={refreshSources}
+              >
+                <RefreshCw className={tmdbLoading || refreshPulse ? 'spin' : ''} size={18} />
+              </button>
+            </div>
+            {suggestions.length > 0 && (
+              <div className="home-section">
+                <p className="home-section-label">
+                  <Sparkles size={14} />
+                  Suggested for you
+                </p>
+                <div className="suggestion-strip">
+                  {suggestions.slice(0, 6).map((item) => (
+                    <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
+                      {item.poster_path ? (
+                        <Image
+                          src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
+                          alt=""
+                          width={44}
+                          height={64}
+                          style={{ width: '44px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block' }}
+                          placeholder="blur"
+                          blurDataURL={makePosterBlur(null)}
+                        />
+                      ) : (
+                        <div className="poster-fallback">
+                          <MonitorPlay size={18} />
+                        </div>
+                      )}
+                      <div className="suggestion-info">
+                        <strong>{item.title ?? item.name}</strong>
+                        <span>{item.provider}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="icon-button quiet"
+                        aria-label={`Track ${item.title ?? item.name}`}
+                        onClick={() => persistWatchingItem(mediaToWatchingItem(item))}
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            )}
+            <DiscoveryFilters
+              discoveryGenreId={discoveryGenreId}
+              discoveryMediaType={discoveryMediaType}
+              discoveryQuery={discoveryQuery}
+              discoveryStatusFilter={discoveryStatusFilter}
+              genreOptions={genreOptions}
+              onGenreChange={setDiscoveryGenreId}
+              onMediaTypeChange={setDiscoveryMediaType}
+              onPosterScaleChange={setPosterScale}
+              onQueryChange={setDiscoveryQuery}
+              onStatusFilterChange={setDiscoveryStatusFilter}
+              posterScale={posterScale}
+              showMediaType
+            />
+            <div className="provider-row">
+              {providers.map((provider) => (
+                <button
+                  className={provider.enabled ? 'provider active' : 'provider'}
+                  key={provider.label}
+                  type="button"
+                  onClick={() => toggleProvider(provider.label)}
+                >
+                  <Filter size={15} />
+                  {provider.label}
+                </button>
+              ))}
+            </div>
+            <MediaGrid
+              dominantColourByKey={dominantColourByKey}
+              genreMap={genreMap}
+              items={visibleStreamingItems}
+              onAction={addRecommendation}
+              onTrack={(item) => persistWatchingItem(mediaToWatchingItem(item))}
+              posterScale={posterScale}
+              statusByKey={discoveryStatusByKey}
+              trackedTitleSet={trackedTitleSet}
+            />
+            {!tmdbLoading && visibleStreamingItems.length === 0 && (
+              <EmptyState
+                title="No titles for the selected services"
+                detail="Turn a provider back on, restore hidden categories, or tap refresh."
+              />
+            )}
+          </div>
 
           <div className="view-section">
             <div className="section-heading">
@@ -1660,6 +1762,84 @@ function App() {
         </section>
       )}
     </main>
+  )
+}
+
+function CountdownCard({
+  chip,
+  days,
+  dominantColour,
+  posterPath,
+  title,
+}: {
+  chip: string
+  days: number
+  dominantColour: string | null
+  posterPath: string | null
+  title: string
+}) {
+  const isUrgent = days <= 7
+  return (
+    <div
+      className="countdown-card"
+      style={dominantColour ? ({ borderColor: `${dominantColour}40` } as CSSProperties) : undefined}
+    >
+      {posterPath ? (
+        <Image
+          src={`https://image.tmdb.org/t/p/w185${posterPath}`}
+          alt=""
+          width={185}
+          height={278}
+          sizes="130px"
+          style={{ width: '100%', height: 'auto', display: 'block' }}
+          placeholder="blur"
+          blurDataURL={makePosterBlur(dominantColour)}
+        />
+      ) : (
+        <div className="countdown-card-fallback poster-fallback">
+          <span className="poster-fallback-title">{title}</span>
+        </div>
+      )}
+      <div className="countdown-card-info">
+        <p className="countdown-card-title">{title}</p>
+        <span className={isUrgent ? 'countdown-chip countdown-chip--urgent' : 'countdown-chip'}>{chip}</span>
+      </div>
+    </div>
+  )
+}
+
+function WatchlistGrid({
+  items,
+  onMarkWatched,
+  onRemove,
+}: {
+  items: WatchingItem[]
+  onMarkWatched: (item: WatchingItem) => void
+  onRemove: (id: string) => void
+}) {
+  return (
+    <div className="watchlist-grid">
+      {items.map((item) => (
+        <div key={item.id} className="watchlist-card">
+          <div className="watchlist-card-poster">
+            <MonitorPlay size={20} />
+          </div>
+          <div className="watchlist-card-info">
+            <span>{item.title}</span>
+          </div>
+          <div className="watchlist-card-actions">
+            <button type="button" onClick={() => onMarkWatched(item)}>
+              <Check size={12} />
+              {item.type === 'film' ? 'Watched' : 'Ep watched'}
+            </button>
+            <button type="button" onClick={() => onRemove(item.id)}>
+              <Trash2 size={12} />
+              Remove
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
@@ -2126,6 +2306,13 @@ function filterDiscoveryItems(
 
 function getProgrammeChannelId(item: TvMazeEpisode) {
   return String(item.show.id)
+}
+
+function getDaysUntil(dateStr: string): number {
+  const todayStr = formatIrelandDate(new Date())
+  const [ty, tm, td] = todayStr.split('-').map(Number)
+  const [ry, rm, rd] = dateStr.split('-').map(Number)
+  return Math.round((Date.UTC(ry, rm - 1, rd) - Date.UTC(ty, tm - 1, td)) / 86400000)
 }
 
 function getProgrammeStatus(item: TvMazeEpisode, nowMs: number): 'on-now' | 'next' | 'later' {

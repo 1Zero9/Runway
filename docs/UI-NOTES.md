@@ -165,9 +165,46 @@ Read this at the start of every session before touching any CSS or component cod
 - ✅ Auto-scroll to NOW on data load
 - ✅ TypeScript: clean
 
-## Phase 5 — Runway view
+## Phase 5 — Runway view ✅
 
-Not started.
+**What changed:**
+
+- **`src/app/Runway.tsx`** — Added `activeWatchingItems`, `countdownItems`, `countdownGroups` useMemos. Added `getDaysUntil` helper. Added `CountdownCard` and `WatchlistGrid` components. Restructured Runway view JSX: countdown stream → watchlist grid → streaming/cinema discover section.
+- **`src/app/runway.css`** — Added `.countdown-group`, `.countdown-group-label`, `.countdown-cards`, `.countdown-card`, `.countdown-card-fallback`, `.countdown-card-info`, `.countdown-card-title`, `.countdown-chip`, `.countdown-chip--urgent`. Added `.watchlist-grid`, `.watchlist-card`, `.watchlist-card-poster`, `.watchlist-card-info`, `.watchlist-card-actions`.
+
+**Runway view structure (top → bottom):**
+1. **Countdown stream** — grouped by proximity:
+   - "Out this week" — releases/episodes within 7 days
+   - "This month" — days 8–30
+   - "Coming up" — beyond 30 days
+2. **Watching grid** — `<WatchlistGrid>` for all active (non-completed/dropped) watching items
+3. **Discover** — existing streaming browse + suggestions + cinema browse, in a `.view-section` divider
+
+**Countdown cards (130px wide, 2:3 aspect ratio):**
+- Cinema items: TMDb poster via `next/image` (w185), title, countdown chip
+- Watching items: `.countdown-card-fallback` poster (2:3 aspect, title text fallback), title, season-prefixed chip
+- Chip format: "TODAY", "TOMORROW", "N DAYS" — for shows: "S04 · N DAYS"
+- Chip colour: `--text-dim` normally, `--accent` when `days <= 7`
+
+**Watchlist grid:**
+- `grid-template-columns: repeat(auto-fill, minmax(90px, 1fr))` — fills width responsively
+- Each card is `aspect-ratio: 2/3` with absolute-positioned layers: poster placeholder (MonitorPlay icon) | title gradient overlay | action overlay (opacity 0 → 1 on hover/focus-within)
+- Actions: "Ep watched" / "Watched" (calls `markWatched`) + "Remove" (calls `removeWatching`)
+
+**`getDaysUntil(dateStr)`:** parses YYYY-MM-DD strings as UTC noon (avoids DST edge cases), returns integer days from Irish today.
+
+**Decisions:**
+- Streaming discovery section kept intact — moved under a `view-section` divider below the primary countdown + watchlist content. Not removed; still useful for browsing.
+- Suggestions strip moved inside the Discover section (below the streaming heading) rather than at the very top of the view.
+- Watching items use `nextEpisode` date (user-maintained) as the countdown source — TMDb `next_episode_to_air` would require new API work and is deferred to a later enhancement.
+- Empty state shown when no countdown items AND TMDb is not loading.
+
+**Acceptance criteria status:**
+- ✅ Runway view is one scrollable stream sorted by proximity (countdown groups)
+- ✅ Countdowns correct against Irish dates (UTC midnight parse)
+- ✅ Cinema poster cards 2:3 with mono countdown chip
+- ✅ Watchlist grid with hover-reveal actions
+- ✅ TypeScript: clean
 
 ## Phase 6 — Library
 

@@ -1790,6 +1790,158 @@ button:disabled {
   justify-content: center;
 }
 
+/* ── Countdown stream ───────────────────────────────────────────────────── */
+
+.countdown-group {
+  margin-bottom: var(--space-5);
+}
+
+.countdown-group-label {
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.countdown-cards {
+  display: flex;
+  gap: var(--space-3);
+  overflow-x: auto;
+  padding-bottom: var(--space-2);
+}
+
+.countdown-card {
+  flex: 0 0 auto;
+  width: 130px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.countdown-card-fallback {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  height: auto;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.countdown-card-info {
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.countdown-card-title {
+  font-size: var(--fs-sm);
+  font-weight: 650;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.countdown-chip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+.countdown-chip--urgent {
+  color: var(--accent);
+}
+
+/* ── Watchlist poster grid ──────────────────────────────────────────────── */
+
+.watchlist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: var(--space-2);
+}
+
+.watchlist-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  aspect-ratio: 2 / 3;
+}
+
+.watchlist-card-poster {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+}
+
+.watchlist-card-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  padding: var(--space-5) var(--space-2) var(--space-2);
+  background: linear-gradient(transparent, rgba(11, 13, 16, 0.88) 40%);
+}
+
+.watchlist-card-info span {
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.watchlist-card-actions {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: rgba(11, 13, 16, 0.85);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.watchlist-card:hover .watchlist-card-actions,
+.watchlist-card:focus-within .watchlist-card-actions {
+  opacity: 1;
+}
+
+.watchlist-card-actions button {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
 /* ── Shared list page ───────────────────────────────────────────────────── */
 
 .media-login {
