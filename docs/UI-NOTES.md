@@ -688,3 +688,37 @@ All tables get `user_id` defaulting to 'steve' via `RUNWAY_USER_ID` constant.
 - ✅ No dark-mode hardcoded colors remaining
 - ✅ TypeScript: clean
 - ✅ 40 tests pass
+
+---
+
+## CONTROLS Phase 0 (Interaction audit + actions layer) ✅
+
+**Adapted from RUNWAY-CONTROLS.md Phase 0**
+
+**What was dead and why:**
+
+- `addRecommendation`: toast fired BEFORE `fetch` — if the API call failed, the user saw a success toast but nothing was saved. Fixed: toast moved to success branch only.
+- `removeRecommendationItem` (called from StatusBucket and RecommendationListItem): used `await fetch(...)` with no `response.ok` check and no UI revert — silent failure left a dangling optimistic delete. Fixed: added check + revert + error toast.
+- `removeRecommendationList`: same pattern as above. Fixed likewise.
+- `copyShareLink`: wrote to clipboard with no feedback at all. Fixed: `setToast('Link copied')` added.
+
+**What was one-way without revert (fixed):**
+
+- `persistWatchingItem`: optimistic add stayed in the list even if POST failed (only set `watchlistSource='local'`). Fixed: saves prior list snapshot, reverts the added item on failure, shows error toast.
+- `updateWatchingItem`: optimistic patch stuck on failure. Fixed: reverts to the `item` argument (pre-patch) on failure, shows error toast.
+- `removeWatching`: optimistic remove stuck on failure. Fixed: saves prior item, re-inserts at front on failure, shows error toast.
+- `renameRecommendationList`: no error feedback. Fixed: reverts to prior name, shows error toast.
+- `moveRecommendationItem`: no error feedback. Fixed: reverts to prior listId, shows error toast.
+- `generateCalendarToken`: had `finally` block but no user feedback on failure. Fixed: shows error toast.
+
+**New files:**
+
+- `src/lib/actions.ts` — typed mutation layer. Every client→server write goes through one of its exported functions. Returns `ActionResult<T> = { ok: true; data: T } | { ok: false; error: string }`. Exports: `watchlistAdd`, `watchlistUpdate`, `watchlistRemove`, `recommendationsAddItem`, `recommendationsRemoveItem`, `recommendationsCreateList`, `recommendationsRenameList`, `recommendationsMoveItem`, `recommendationsRemoveList`, `calendarGetToken`, `calendarGenerateToken`.
+- `docs/CONTROL-AUDIT.md` — full 71-row audit table classifying all interactive elements (✅/⚠️/❌/🔁). Zero ❌ rows after fixes.
+
+**Acceptance criteria status:**
+- ✅ `docs/CONTROL-AUDIT.md` exists, zero ❌ rows
+- ✅ All mutations flow through `src/lib/actions.ts`
+- ✅ No inline `fetch` calls remaining for mutations in `Runway.tsx`
+- ✅ TypeScript: clean
+- ✅ 40 tests pass

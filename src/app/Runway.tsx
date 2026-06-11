@@ -31,6 +31,19 @@ import type { CSSProperties, FormEvent, ReactNode } from 'react'
 import { formatEpisodeLabel } from '@/lib/episode-label'
 import { buildShortlist } from '@/lib/shortlist'
 import type { WatchlistItem } from '@/lib/shortlist'
+import {
+  watchlistAdd,
+  watchlistUpdate,
+  watchlistRemove,
+  recommendationsAddItem,
+  recommendationsRemoveItem,
+  recommendationsCreateList,
+  recommendationsRenameList,
+  recommendationsMoveItem,
+  recommendationsRemoveList,
+  calendarGetToken,
+  calendarGenerateToken,
+} from '@/lib/actions'
 import './runway.css'
 
 type Tab = 'tonight' | 'runway' | 'library' | 'settings' | 'guide'
@@ -675,10 +688,9 @@ function App() {
   }, [setWatching])
 
   useEffect(() => {
-    fetch('/api/calendar/token')
-      .then((r) => r.ok ? r.json() : null)
-      .then((data: { token: string | null } | null) => { if (data) setCalendarToken(data.token) })
-      .catch(() => undefined)
+    calendarGetToken().then((result) => {
+      if (result.ok) setCalendarToken(result.data.token)
+    })
   }, [])
 
   useEffect(() => {
@@ -780,14 +792,12 @@ function App() {
 
   async function generateCalendarToken() {
     setCalendarTokenLoading(true)
-    try {
-      const res = await fetch('/api/calendar/token', { method: 'POST' })
-      if (res.ok) {
-        const data = (await res.json()) as { token: string }
-        setCalendarToken(data.token)
-      }
-    } finally {
-      setCalendarTokenLoading(false)
+    const result = await calendarGenerateToken()
+    setCalendarTokenLoading(false)
+    if (result.ok) {
+      setCalendarToken(result.data.token)
+    } else {
+      setToast(result.error)
     }
   }
 
@@ -806,19 +816,15 @@ function App() {
     }
 
     setWatching((current) => [item, ...current])
-    try {
-      const response = await fetch('/api/media-guide/watchlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item),
-      })
-      if (!response.ok) throw new Error('Could not save watchlist item.')
-      const saved = (await response.json()) as WatchingItem
-      setWatching((current) => current.map((row) => (row.id === item.id ? saved : row)))
-      setWatchlistSource('neon')
-    } catch {
+    const result = await watchlistAdd(item)
+    if (!result.ok) {
+      setWatching((current) => current.filter((row) => row.id !== item.id))
+      setToast(result.error)
       setWatchlistSource('local')
+      return
     }
+    setWatching((current) => current.map((row) => (row.id === item.id ? (result.data as WatchingItem) : row)))
+    setWatchlistSource('neon')
   }
 
   async function addWatching(event: FormEvent<HTMLFormElement>) {
@@ -884,60 +890,52 @@ function App() {
     setWatching((current) =>
       current.map((row) => (row.id === item.id ? { ...row, ...patch } : row)),
     )
-    try {
-      const response = await fetch('/api/media-guide/watchlist', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, ...patch }),
-      })
-      if (!response.ok) throw new Error('Could not update watchlist item.')
-      const saved = (await response.json()) as WatchingItem
-      setWatching((current) => current.map((row) => (row.id === item.id ? saved : row)))
-      setWatchlistSource('neon')
-      if (successMessage) setToast(successMessage)
-    } catch {
+    const result = await watchlistUpdate({ id: item.id, ...patch })
+    if (!result.ok) {
+      setWatching((current) => current.map((row) => (row.id === item.id ? item : row)))
+      setToast(result.error)
       setWatchlistSource('local')
+      return
     }
+    setWatching((current) => current.map((row) => (row.id === item.id ? (result.data as WatchingItem) : row)))
+    setWatchlistSource('neon')
+    if (successMessage) setToast(successMessage)
   }
 
   async function removeWatching(id: string) {
+    const prior = watching.find((row) => row.id === id)
     setWatching((current) => current.filter((row) => row.id !== id))
-    try {
-      const response = await fetch(`/api/media-guide/watchlist?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
-      if (!response.ok) throw new Error('Could not delete watchlist item.')
-      setWatchlistSource('neon')
-    } catch {
+    const result = await watchlistRemove(id)
+    if (!result.ok) {
+      if (prior) setWatching((current) => [prior, ...current])
+      setToast(result.error)
       setWatchlistSource('local')
+      return
     }
+    setWatchlistSource('neon')
   }
 
   async function addRecommendation(item: TmdbItem, status: RecommendationItem['status']) {
-    const payload = {
-      action: 'add-item',
+    const titleStr = item.title ?? item.name ?? 'Untitled'
+    const result = await recommendationsAddItem({
       listId: null,
-      item: {
-        tmdbId: item.id,
-        mediaType: item.media_type ?? (item.name ? 'tv' : 'movie'),
-        status,
-        title: item.title ?? item.name ?? 'Untitled',
-        service: item.provider ?? 'Streaming',
-        posterPath: item.poster_path,
-        overview: item.overview,
-      },
+      tmdbId: item.id,
+      mediaType: item.media_type ?? (item.name ? 'tv' : 'movie'),
+      status,
+      title: titleStr,
+      service: item.provider ?? 'Streaming',
+      posterPath: item.poster_path,
+      overview: item.overview,
+    })
+    if (!result.ok) {
+      setToast(result.error)
+      return
     }
-
     if ((status === 'favorite' || status === 'recommend') && discoveryStatusFilter === 'unselected') {
       setDiscoveryStatusFilter('all')
     }
-    setToast(statusLabel(status, item.title ?? item.name ?? 'Title'))
-    const response = await fetch('/api/media-guide/recommendations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!response.ok) return
-    const saved = (await response.json()) as RecommendationItem
-    setRecommendationItems((current) => [saved, ...current])
+    setRecommendationItems((current) => [result.data as RecommendationItem, ...current])
+    setToast(statusLabel(status, titleStr))
   }
 
   function toggleHiddenGenre(id: number) {
@@ -951,14 +949,9 @@ function App() {
     const name = String(data.get('name') ?? '').trim()
     if (!name) return
 
-    const response = await fetch('/api/media-guide/recommendations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create-list', name }),
-    })
-    if (!response.ok) return
-    const list = (await response.json()) as RecommendationList
-    setRecommendationLists((current) => [list, ...current])
+    const result = await recommendationsCreateList(name)
+    if (!result.ok) { setToast(result.error); return }
+    setRecommendationLists((current) => [result.data as RecommendationList, ...current])
     event.currentTarget.reset()
   }
 
@@ -968,53 +961,57 @@ function App() {
     setRecommendationLists((current) =>
       current.map((item) => (item.id === list.id ? { ...item, name: nextName } : item)),
     )
-    const response = await fetch('/api/media-guide/recommendations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'rename-list', listId: list.id, name: nextName }),
-    })
-    if (!response.ok) return
-    const saved = (await response.json()) as RecommendationList
-    setRecommendationLists((current) => current.map((item) => (item.id === saved.id ? saved : item)))
+    const result = await recommendationsRenameList(list.id, nextName)
+    if (!result.ok) {
+      setRecommendationLists((current) => current.map((item) => (item.id === list.id ? list : item)))
+      setToast(result.error)
+      return
+    }
+    setRecommendationLists((current) => current.map((item) => (item.id === result.data.id ? (result.data as RecommendationList) : item)))
   }
 
   async function moveRecommendationItem(itemId: string, listId: string) {
     const nextListId = listId || null
+    const prior = recommendationItems.find((item) => item.id === itemId)
     setRecommendationItems((current) =>
       current.map((item) => (item.id === itemId ? { ...item, listId: nextListId } : item)),
     )
-    const response = await fetch('/api/media-guide/recommendations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'move-item', itemId, listId: nextListId }),
-    })
-    if (!response.ok) return
-    const saved = (await response.json()) as RecommendationItem
-    setRecommendationItems((current) => current.map((item) => (item.id === saved.id ? saved : item)))
+    const result = await recommendationsMoveItem(itemId, nextListId)
+    if (!result.ok) {
+      if (prior) setRecommendationItems((current) => current.map((item) => (item.id === itemId ? prior : item)))
+      setToast(result.error)
+      return
+    }
+    setRecommendationItems((current) => current.map((item) => (item.id === result.data.id ? (result.data as RecommendationItem) : item)))
   }
 
   async function removeRecommendationItem(id: string) {
+    const prior = recommendationItems.find((item) => item.id === id)
     setRecommendationItems((current) => current.filter((item) => item.id !== id))
-    await fetch('/api/media-guide/recommendations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete-item', itemId: id }),
-    })
+    const result = await recommendationsRemoveItem(id)
+    if (!result.ok) {
+      if (prior) setRecommendationItems((current) => [prior, ...current])
+      setToast(result.error)
+    }
   }
 
   async function removeRecommendationList(id: string) {
+    const priorList = recommendationLists.find((list) => list.id === id)
+    const priorItems = recommendationItems.filter((item) => item.listId === id)
     setRecommendationLists((current) => current.filter((list) => list.id !== id))
     setRecommendationItems((current) => current.filter((item) => item.listId !== id))
-    await fetch('/api/media-guide/recommendations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete-list', listId: id }),
-    })
+    const result = await recommendationsRemoveList(id)
+    if (!result.ok) {
+      if (priorList) setRecommendationLists((current) => [priorList, ...current])
+      if (priorItems.length) setRecommendationItems((current) => [...priorItems, ...current])
+      setToast(result.error)
+    }
   }
 
   async function copyShareLink(slug: string) {
     const url = `${window.location.origin}/share/${slug}`
     await navigator.clipboard.writeText(url)
+    setToast('Link copied')
   }
 
   async function installApp() {
@@ -1087,18 +1084,11 @@ function App() {
     setWatching((current) =>
       current.map((row) => (row.id === item.id ? { ...row, leavingDate: date } : row)),
     )
-    try {
-      const response = await fetch('/api/media-guide/watchlist', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, leavingDate: date }),
-      })
-      if (!response.ok) throw new Error()
-      const saved = (await response.json()) as WatchingItem
-      setWatching((current) => current.map((row) => (row.id === item.id ? saved : row)))
-    } catch {
-      // optimistic update stands
+    const result = await watchlistUpdate({ id: item.id, leavingDate: date })
+    if (result.ok) {
+      setWatching((current) => current.map((row) => (row.id === item.id ? (result.data as WatchingItem) : row)))
     }
+    // optimistic update stands on failure — low-stakes field
   }
 
   useEffect(() => {
