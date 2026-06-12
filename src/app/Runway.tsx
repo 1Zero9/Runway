@@ -1236,19 +1236,28 @@ function App() {
 
   async function handleEpisodeUpdate(item: WatchingItem, season: number, episode: number) {
     const detail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
+    const priorSeason = item.currentSeason ?? 1
+    const priorEpisode = item.currentEpisode ?? 0
+    const priorStatus = item.status ?? 'watching'
+    const priorDone = item.done
     let isFinished = false
     if (detail) {
       const lastSeason = detail.seasons[detail.seasons.length - 1]
       if (lastSeason && season >= lastSeason.seasonNumber && episode >= lastSeason.episodeCount) {
         isFinished = true
-        setPulsingItemId(item.id)
-        setTimeout(() => setPulsingItemId((id) => (id === item.id ? null : id)), 700)
       }
     }
     await updateEpisode(item, season, episode)
     if (isFinished && getWatchStatus(item) !== 'completed') {
       await updateWatchingStatus(item, 'completed')
-      setToast('Finished — nice one.')
+      showToast(`${item.title} — finished`, async () => {
+        await updateWatchingItem(item, { currentSeason: priorSeason, currentEpisode: priorEpisode, status: priorStatus, done: priorDone })
+      })
+    } else {
+      const epLabel = formatEpisodeLabel(season, episode)
+      showToast(`${item.title} — up to ${epLabel}`, async () => {
+        await updateWatchingItem(item, { currentSeason: priorSeason, currentEpisode: priorEpisode })
+      })
     }
   }
 
