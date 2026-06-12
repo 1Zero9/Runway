@@ -501,10 +501,12 @@ function App() {
   }, [watching, timeFit, now, tvTonightTracked, showDetailCache, providers])
 
   const topItemTmdbId = useMemo(() => {
-    const top = shortlistItems[0]?.item
-    if (!top?.tmdbId || top.type === 'film') return null
-    return top.tmdbId
-  }, [shortlistItems])
+    const shortlistTop = shortlistItems[0]?.item
+    if (shortlistTop?.tmdbId && shortlistTop.type !== 'film') return shortlistTop.tmdbId
+    // Fall back to first in-progress TV show with a TMDb ID
+    const fallback = watching.find((w) => w.tmdbId && w.type !== 'film')
+    return fallback?.tmdbId ?? null
+  }, [shortlistItems, watching])
 
   const heroBackdropPath = useMemo(
     () => (topItemTmdbId ? showDetailCache[topItemTmdbId]?.backdropPath ?? null : null),
