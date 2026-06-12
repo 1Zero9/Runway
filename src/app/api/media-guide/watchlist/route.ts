@@ -135,6 +135,7 @@ export async function PATCH(request: Request) {
     if (derived) { derivedStatus = derived.status; derivedDone = derived.done }
   }
 
+  const hasPosterPath = 'posterPath' in (payload as Record<string, unknown>)
   const rows = await sql`
     update media_watchlist
     set done = coalesce(${derivedDone}, done),
@@ -145,6 +146,7 @@ export async function PATCH(request: Request) {
         current_season = coalesce(${payload.currentSeason ?? null}, current_season),
         current_episode = coalesce(${payload.currentEpisode ?? null}, current_episode),
         tmdb_id = coalesce(${payload.tmdbId ?? null}, tmdb_id),
+        poster_path = case when ${hasPosterPath}::boolean then ${payload.posterPath ?? null} else poster_path end,
         relationship = case when ${hasRelationship}::boolean then ${payload.relationship ?? null} else relationship end,
         relationship_changed_at = case when ${hasRelationship}::boolean then now() else relationship_changed_at end,
         favourited_at = case when ${hasFavouritedAt}::boolean then ${payload.favouritedAt ?? null}::timestamptz else favourited_at end,

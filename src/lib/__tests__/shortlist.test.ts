@@ -85,6 +85,12 @@ describe('CONTINUE rule', () => {
     const result = buildShortlist(items, ctx())
     expect(result[0]?.rule).not.toBe('CONTINUE')
   })
+
+  it('surfaces CONTINUE for a freshly added show with null lastWatchedAt', () => {
+    const items = [item({ id: '1', title: 'Severance', lastWatchedAt: null })]
+    const result = buildShortlist(items, ctx())
+    expect(result[0].rule).toBe('CONTINUE')
+  })
 })
 
 // ── ON_TV_TONIGHT ─────────────────────────────────────────────────────────────

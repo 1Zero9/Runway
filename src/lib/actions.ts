@@ -44,6 +44,7 @@ export type WatchlistPatch = Partial<
     | 'currentSeason'
     | 'currentEpisode'
     | 'tmdbId'
+    | 'posterPath'
     | 'leavingDate'
     | 'relationship'
     | 'favouritedAt'

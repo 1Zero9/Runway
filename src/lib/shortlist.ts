@@ -134,8 +134,8 @@ export function buildShortlist(
       }
     }
 
-    // CONTINUE
-    if (status === 'watching' && lw >= fourteenDaysAgo) {
+    // CONTINUE — include shows with no lastWatchedAt (just added / never started)
+    if (status === 'watching' && (!lw || lw >= fourteenDaysAgo)) {
       addCandidate({
         item,
         rule: 'CONTINUE',

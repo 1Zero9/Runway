@@ -179,6 +179,15 @@ const defaultProviders: Provider[] = [
 ]
 
 const appVersion = '0.1.5'
+
+// Phase 3 (RUNWAY-RESET.md): strip to three modules until quality proven.
+// Re-admit each module in Phase 5 after screenshot evidence + prod-bar verdict.
+const DASHBOARD_MODULES = {
+  reconciliation: false,
+  comingUp:       false,
+  onTvTonight:    false,
+  worthALook:     false,
+} as const
 const watchStatusOrder: WatchStatus[] = ['watching', 'waiting', 'planned', 'completed', 'dropped']
 
 const fallbackStreaming: TmdbItem[] = [
@@ -637,7 +646,8 @@ function App() {
     if (inProgress > 0) parts.push(`${inProgress} show${inProgress === 1 ? '' : 's'} on the go`)
     if (soonItem) {
       const when = soonItem.days === 0 ? 'out today' : soonItem.days === 1 ? 'out tomorrow' : 'out this week'
-      parts.push(`${soonItem.title} is ${when}`)
+      // Quote the title to avoid ambiguous sentences ("One More Chance is out today")
+      parts.push(`‘${soonItem.title}’ is ${when}`)
     }
     return parts.join(' · ')
   }, [watching, countdownItems])
@@ -800,6 +810,29 @@ function App() {
       if (result.ok) setCalendarToken(result.data.token)
     })
   }, [])
+
+  // Phase 1 artwork backfill: enrich DB rows that have tmdbId but no posterPath.
+  // Runs once per session after the watchlist arrives from the server.
+  useEffect(() => {
+    if (watchlistSource !== 'neon') return
+    const hasUnartworked = watching.some((w) => w.tmdbId && !w.posterPath)
+    if (!hasUnartworked) return
+    fetch('/api/media-guide/artwork-backfill', { method: 'POST' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((result: { enriched: number } | null) => {
+        if (!result?.enriched) return
+        // Re-fetch watchlist to pick up the newly-written poster_path values
+        fetch('/api/media-guide/watchlist')
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data: WatchingItem[] | null) => {
+            if (data) setWatching(data)
+          })
+          .catch(() => undefined)
+      })
+      .catch(() => undefined)
+  // Run once per session after watchlist data arrives (watchlistSource flips to 'neon')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchlistSource])
 
   useEffect(() => {
     if (!topItemTmdbId || showDetailCache[topItemTmdbId]) return
@@ -1593,6 +1626,7 @@ function App() {
       {tab === 'tonight' && (
         <section className="view dashboard">
           <div className={heroBackdropPath ? 'dashboard-hero-wrap has-backdrop' : 'dashboard-hero-wrap'}>
+
             {heroBackdropPath && (
               <div className="dashboard-hero-bg" aria-hidden>
                 <Image
@@ -1626,22 +1660,9 @@ function App() {
               ))}
             </div>
 
-            {/* Shortlist */}
-            <div className="dashboard-section">
-              <h2 className="dashboard-section-header">Shortlist</h2>
-              {shortlistItems.length > 0 ? (
-                <div className="shortlist-rail">
-                  {shortlistItems.map((entry, index) => (
-                    <ShortlistCard
-                      key={entry.item.id}
-                      entry={entry}
-                      cardIndex={index}
-                      showDetail={entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined}
-                      onMarkWatched={() => markWatched(entry.item, entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined)}
-                    />
-                  ))}
-                </div>
-              ) : (
+            {/* Shortlist — absent when library populated but no candidates qualify */}
+            {watching.length === 0 ? (
+              <div className="dashboard-section">
                 <div className="onboarding-card">
                   <MonitorPlay size={28} />
                   <h3>Track your first show</h3>
@@ -1658,21 +1679,27 @@ function App() {
                     <button type="submit">Search</button>
                   </form>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : shortlistItems.length > 0 ? (
+              <div className="dashboard-section">
+                <h2 className="dashboard-section-header">Shortlist</h2>
+                <div className="shortlist-rail">
+                  {shortlistItems.map((entry, index) => (
+                    <ShortlistCard
+                      key={entry.item.id}
+                      entry={entry}
+                      cardIndex={index}
+                      showDetail={entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined}
+                      onMarkWatched={() => markWatched(entry.item, entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div> {/* end dashboard-hero-wrap */}
 
-          {/* Reconciliation */}
-          {reconItems.length > 0 && (
-            <ReconciliationCard
-              items={reconItems}
-              onConfirm={(item) => markWatched(item, item.tmdbId ? showDetailCache[item.tmdbId] : undefined)}
-              onDismiss={() => setReconDismissed(true)}
-            />
-          )}
-
-          {/* Continue watching */}
-          {inProgressShows.length > 0 && (
+          {/* Continue watching — always shown when items exist; reconciliation replaced by this */}
+          {inProgressShows.length > 0 && watching.length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">Continue watching</h2>
               <ContinueRail
@@ -1684,8 +1711,17 @@ function App() {
             </div>
           )}
 
-          {/* Coming up */}
-          {countdownGroups.length > 0 && (
+          {/* DASHBOARD_MODULES — Phase 3: all optional modules gated off.
+              Re-admit one at a time in Phase 5 once quality is proven. */}
+          {DASHBOARD_MODULES.reconciliation && reconItems.length > 0 && (
+            <ReconciliationCard
+              items={reconItems}
+              onConfirm={(item) => markWatched(item, item.tmdbId ? showDetailCache[item.tmdbId] : undefined)}
+              onDismiss={() => setReconDismissed(true)}
+            />
+          )}
+
+          {DASHBOARD_MODULES.comingUp && countdownGroups.length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">Coming up</h2>
               {countdownGroups.map((group) => (
@@ -1708,37 +1744,37 @@ function App() {
             </div>
           )}
 
-          {/* On TV tonight */}
-          <div className="dashboard-section">
-            <h2 className="dashboard-section-header">On TV tonight</h2>
-            {tvTonightTracked.length > 0 ? (
-              <div className="tv-tonight-list">
-                {tvTonightTracked.map((item) => {
-                  const timeStatus = getProgrammeStatus(item, now.getTime())
-                  return (
-                    <div key={item.id} className="tv-tonight-row">
-                      <span className="tv-tonight-time">{item.airtime || formatTime(item.airstamp)}</span>
-                      <span className="tv-tonight-channel">{item.show.network?.name ?? item.show.webChannel?.name ?? ''}</span>
-                      <span className="tv-tonight-title">{item.show.name}</span>
-                      <div className="tv-tonight-chips">
-                        {timeStatus === 'on-now' && <span className="status-chip chip-on-now">On now</span>}
-                        {timeStatus === 'next' && <span className="status-chip chip-next">Next</span>}
-                        <span className="status-chip chip-tracked">Tracked</span>
+          {DASHBOARD_MODULES.onTvTonight && (
+            <div className="dashboard-section">
+              <h2 className="dashboard-section-header">On TV tonight</h2>
+              {tvTonightTracked.length > 0 ? (
+                <div className="tv-tonight-list">
+                  {tvTonightTracked.map((item) => {
+                    const timeStatus = getProgrammeStatus(item, now.getTime())
+                    return (
+                      <div key={item.id} className="tv-tonight-row">
+                        <span className="tv-tonight-time">{item.airtime || formatTime(item.airstamp)}</span>
+                        <span className="tv-tonight-channel">{item.show.network?.name ?? item.show.webChannel?.name ?? ''}</span>
+                        <span className="tv-tonight-title">{item.show.name}</span>
+                        <div className="tv-tonight-chips">
+                          {timeStatus === 'on-now' && <span className="status-chip chip-on-now">On now</span>}
+                          {timeStatus === 'next' && <span className="status-chip chip-next">Next</span>}
+                          <span className="status-chip chip-tracked">Tracked</span>
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="tv-tonight-empty">
-                <span>Nothing of yours on TV tonight.</span>
-                <button type="button" className="quiet-link" onClick={() => setTab('guide')}>Full guide →</button>
-              </div>
-            )}
-          </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="tv-tonight-empty">
+                  <span>Nothing of yours on TV tonight.</span>
+                  <button type="button" className="quiet-link" onClick={() => setTab('guide')}>Full guide →</button>
+                </div>
+              )}
+            </div>
+          )}
 
-          {/* Worth a look */}
-          {suggestions.length > 0 && (
+          {DASHBOARD_MODULES.worthALook && suggestions.length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">Worth a look</h2>
               <div className="suggestion-strip">
