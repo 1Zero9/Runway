@@ -185,8 +185,8 @@ const appVersion = '0.1.5'
 // Re-admit each module in Phase 5 after screenshot evidence + prod-bar verdict.
 const DASHBOARD_MODULES = {
   reconciliation: false,
-  comingUp:       false,
-  onTvTonight:    false,
+  comingUp:       true,
+  onTvTonight:    true,
   worthALook:     false,
 } as const
 const watchStatusOrder: WatchStatus[] = ['watching', 'waiting', 'planned', 'completed', 'dropped']
@@ -1755,29 +1755,12 @@ function App() {
             </div>
           )}
 
-          {/* Discovery rails — New for you + Trending */}
+          {/* Discovery + personal modules — spec order: New for you → Coming up → Trending → On TV tonight */}
           {newForYou.length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">New for you</h2>
               <DiscoveryRail items={newForYou} />
             </div>
-          )}
-
-          {trendingForYou.length > 0 && (
-            <div className="dashboard-section">
-              <h2 className="dashboard-section-header">Trending this week</h2>
-              <DiscoveryRail items={trendingForYou} />
-            </div>
-          )}
-
-          {/* DASHBOARD_MODULES — Phase 3: all optional modules gated off.
-              Re-admit one at a time in Phase 5 once quality is proven. */}
-          {DASHBOARD_MODULES.reconciliation && reconItems.length > 0 && (
-            <ReconciliationCard
-              items={reconItems}
-              onConfirm={(item) => markWatched(item, item.tmdbId ? showDetailCache[item.tmdbId] : undefined)}
-              onDismiss={() => setReconDismissed(true)}
-            />
           )}
 
           {DASHBOARD_MODULES.comingUp && countdownGroups.length > 0 && (
@@ -1786,7 +1769,7 @@ function App() {
               {countdownGroups.map((group) => (
                 <div key={group.label} className="countdown-group">
                   <p className="countdown-group-label">{group.label}</p>
-                  <div className="countdown-cards">
+                  <div className="countdown-rail">
                     {group.items.map((item) => (
                       <CountdownCard
                         key={item.id}
@@ -1801,6 +1784,21 @@ function App() {
                 </div>
               ))}
             </div>
+          )}
+
+          {trendingForYou.length > 0 && (
+            <div className="dashboard-section">
+              <h2 className="dashboard-section-header">Trending this week</h2>
+              <DiscoveryRail items={trendingForYou} />
+            </div>
+          )}
+
+          {DASHBOARD_MODULES.reconciliation && reconItems.length > 0 && (
+            <ReconciliationCard
+              items={reconItems}
+              onConfirm={(item) => markWatched(item, item.tmdbId ? showDetailCache[item.tmdbId] : undefined)}
+              onDismiss={() => setReconDismissed(true)}
+            />
           )}
 
           {DASHBOARD_MODULES.onTvTonight && (
@@ -2825,6 +2823,16 @@ function ScoreChip({ avg }: { avg: number | undefined }) {
   return <span className={scoreChipClass(avg)}>● {pct}%</span>
 }
 
+function statusChipForRule(rule: ShortlistRule, leavingDate?: string | null): { text: string; cls: string } | null {
+  if (rule === 'LEAVING_SOON' && leavingDate) {
+    const d = Math.round((new Date(leavingDate + 'T12:00:00Z').getTime() - Date.now()) / 86400000)
+    return { text: d <= 0 ? 'TODAY' : d === 1 ? '1 DAY' : `${d} DAYS`, cls: 'chip-leaving' }
+  }
+  if (rule === 'NEW_SEASON') return { text: 'NEW', cls: 'chip-new' }
+  if (rule === 'ON_TV_TONIGHT') return { text: 'TONIGHT', cls: 'chip-new' }
+  return null
+}
+
 function ruleReasonClass(rule: ShortlistRule): string {
   if (rule === 'LEAVING_SOON') return 'reason-leaving'
   if (rule === 'FINISH_LINE' || rule === 'NEW_SEASON') return 'reason-new'
@@ -2847,6 +2855,7 @@ function ShortlistCard({
   const progress = showDetail && item.type !== 'film' && item.type !== 'sport'
     ? computeWatchProgress(item, showDetail)
     : 0
+  const statusChip = statusChipForRule(rule, item.leavingDate)
   return (
     <article className="tile shortlist-tile" style={{ '--card-index': cardIndex } as CSSProperties}>
       <div className="tile-poster">
@@ -2864,6 +2873,9 @@ function ShortlistCard({
           <div className="tile-poster-fallback">
             <span className="poster-fallback-initial">{(item.title[0] ?? '?').toUpperCase()}</span>
           </div>
+        )}
+        {statusChip && (
+          <span className={`chip ${statusChip.cls} tile-status-chip`}>{statusChip.text}</span>
         )}
         {progress > 0 && (
           <div className="tile-progress-track">
@@ -3058,28 +3070,30 @@ function CountdownCard({
   posterPath: string | null
   title: string
 }) {
-  const isUrgent = days <= 7
+  const chipCls = days <= 7 ? 'chip-leaving' : 'chip-soon'
   return (
-    <div className="countdown-card">
-      {posterPath ? (
-        <Image
-          src={`https://image.tmdb.org/t/p/w185${posterPath}`}
-          alt=""
-          width={185}
-          height={278}
-          sizes="130px"
-          style={{ width: '100%', height: 'auto', display: 'block' }}
-          placeholder="blur"
-          blurDataURL={makePosterBlur(dominantColour)}
-        />
-      ) : (
-        <div className="countdown-card-fallback poster-fallback">
-          <span className="poster-fallback-title">{title}</span>
-        </div>
-      )}
-      <div className="countdown-card-info">
-        <p className="countdown-card-title">{title}</p>
-        <span className={isUrgent ? 'countdown-chip countdown-chip--urgent' : 'countdown-chip'}>{chip}</span>
+    <div className="tile countdown-tile">
+      <div className="tile-poster">
+        {posterPath ? (
+          <Image
+            src={`https://image.tmdb.org/t/p/w185${posterPath}`}
+            alt=""
+            width={185}
+            height={278}
+            sizes="164px"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            placeholder="blur"
+            blurDataURL={makePosterBlur(dominantColour)}
+          />
+        ) : (
+          <div className="tile-poster-fallback">
+            <span className="poster-fallback-initial">{(title[0] ?? '?').toUpperCase()}</span>
+          </div>
+        )}
+        <span className={`chip ${chipCls} tile-status-chip`}>{chip}</span>
+      </div>
+      <div className="tile-body">
+        <div className="tile-title">{title}</div>
       </div>
     </div>
   )

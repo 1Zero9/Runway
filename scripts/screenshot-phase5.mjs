@@ -19,9 +19,16 @@ async function login(page) {
 
 async function waitForRealData(page) {
   await page.waitForFunction(() => {
-    const titles = Array.from(document.querySelectorAll('.shortlist-card-title, .continue-card-title'))
+    const titles = Array.from(document.querySelectorAll('.tile-title'))
     return titles.length > 0 && titles.every(el => !el.textContent?.includes('Example:'))
   }, { timeout: 15000 }).catch(() => console.warn('real-data timeout'))
+}
+
+async function waitForDiscovery(page) {
+  await page.waitForFunction(() => {
+    return document.querySelector('.discovery-rail') !== null
+  }, { timeout: 12000 }).catch(() => console.warn('discovery timeout'))
+  await page.waitForTimeout(400)
 }
 
 async function waitForImages(page) {
@@ -87,9 +94,18 @@ const browser = await chromium.launch({ headless: true })
   const page = await ctx.newPage()
   await login(page)
   await waitForRealData(page)
+  await waitForDiscovery(page)
   await waitForImages(page)
-  await page.waitForTimeout(600) // hero crossfade
+  await page.waitForTimeout(400)
   await shot(page, 'phase5-mood-slowhorses.png')
+
+  // Full-page scroll shot showing discovery rails
+  await page.evaluate(() => {
+    const el = document.querySelector('.discovery-rail')
+    if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' })
+  })
+  await waitForImages(page)
+  await shot(page, 'phase5-discovery-1280.png')
 
   // Switch to Library tab and open a show detail to screenshot the backdrop tint
   const libraryTab = page.locator('.tabs .tab', { hasText: 'Library' })
