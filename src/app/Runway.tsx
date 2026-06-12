@@ -3069,7 +3069,7 @@ function ContinueRail({
   onMarkWatched: (item: WatchingItem, detail?: TmdbShowDetail) => void
 }) {
   return (
-    <div className="continue-rail">
+    <div className="continue-rail" aria-label="Continue watching">
       {items.slice(0, 10).map((item) => {
         const isCaughtUp = caughtUpIds.has(item.id)
         const showDetail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
@@ -3085,47 +3085,51 @@ function ContinueRail({
           : null
         const runtime = avgRuntime ? `${avgRuntime} min` : null
         return (
-          <div key={item.id} className={isCaughtUp ? 'tile continue-tile caught-up' : 'tile continue-tile'}>
-            <div className="tile-poster">
+          <div key={item.id} className={isCaughtUp ? 'continue-card caught-up' : 'continue-card'}>
+            <div className="continue-card-poster">
               {item.posterPath ? (
                 <Image
-                  src={`https://image.tmdb.org/t/p/w185${item.posterPath}`}
+                  src={`https://image.tmdb.org/t/p/w92${item.posterPath}`}
                   alt=""
-                  width={185}
-                  height={278}
+                  width={92}
+                  height={138}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   placeholder="blur"
                   blurDataURL={makePosterBlur(null)}
                 />
               ) : (
-                <div className="tile-poster-fallback">
-                  <span className="poster-fallback-initial">{(item.title[0] ?? '?').toUpperCase()}</span>
+                <div className="continue-card-poster-fallback">
+                  <span>{(item.title[0] ?? '?').toUpperCase()}</span>
                 </div>
               )}
-              <div className="tile-progress-track">
-                <div className="tile-progress-fill" style={{ width: isCaughtUp ? '100%' : `${Math.max(2, progress)}%` }} />
+            </div>
+            <div className="continue-card-body">
+              <div className="continue-card-title">{item.title}</div>
+              <div className="continue-card-meta">
+                <ProviderBadge name={item.service} />
+                {epLabel && (
+                  <span key={epLabel} className="continue-ep-label">{epLabel}</span>
+                )}
+                {runtime && <span className="continue-runtime">{runtime}</span>}
               </div>
-              {!isCaughtUp && (
-                <button type="button" className="tile-action" onClick={() => onMarkWatched(item, showDetail)}>
+              {isCaughtUp ? (
+                <span className="continue-caught-up">Caught up ✓</span>
+              ) : (
+                <button
+                  type="button"
+                  className="continue-mark-btn"
+                  onClick={() => onMarkWatched(item, showDetail)}
+                >
                   <Check size={11} />
                   {item.type === 'film' ? 'Watched' : 'Ep watched'}
                 </button>
               )}
             </div>
-            <div className="tile-body">
-              <div className="tile-title">{item.title}</div>
-              <div className="tile-meta">
-                <div className="tile-meta-row">
-                  <ProviderBadge name={item.service} />
-                  <ScoreChip avg={showDetail?.voteAverage} />
-                </div>
-                {isCaughtUp ? (
-                  <span className="tile-context is-new">Caught up ✓</span>
-                ) : (
-                  epLabel && <span className="tile-context">{epLabel}</span>
-                )}
+            {!isCaughtUp && progress > 0 && (
+              <div className="continue-progress-track">
+                <div className="continue-progress-fill" style={{ width: `${Math.max(2, progress)}%` }} />
               </div>
-            </div>
+            )}
           </div>
         )
       })}

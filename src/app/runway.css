@@ -357,8 +357,8 @@ button:disabled {
 .topbar-wordmark {
   font-family: var(--font-display);
   font-size: var(--fs-xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   color: var(--ink);
 }
@@ -2861,10 +2861,10 @@ button:disabled {
 .greeting-date {
   font-family: var(--font-display);
   font-size: var(--fs-3xl);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--ink);
-  line-height: 1.04;
-  letter-spacing: -0.02em;
+  line-height: 1.05;
+  letter-spacing: -0.01em; /* Fraunces looks best with tighter but not extreme tracking */
 }
 
 .time-fit-bar {
@@ -2907,13 +2907,13 @@ button:disabled {
 .dashboard-section-header {
   font-family: var(--font-display);
   font-size: var(--fs-2xl);
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
   color: var(--ink);
-  line-height: 1.15;
+  line-height: 1.1;
   padding-bottom: var(--space-3);
   margin-bottom: var(--space-5);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--line-strong);
 }
 
 .dashboard-empty-hint {
@@ -3083,7 +3083,7 @@ button:disabled {
 .tile-reason.reason-soon    { color: var(--soon);    font-weight: 600; }
 .tile-context.is-new        { color: var(--new);     font-weight: 600; }
 
-/* Shortlist rail */
+/* Shortlist rail — wider signature cards */
 
 .shortlist-rail {
   display: flex;
@@ -3091,28 +3091,206 @@ button:disabled {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-padding: 0 var(--space-5);
-  padding-bottom: var(--space-2);
+  padding: 0 var(--space-5) var(--space-2);
+  margin: 0 calc(-1 * var(--space-5));  /* bleed to container edge */
   -webkit-overflow-scrolling: touch;
 }
 
 .shortlist-rail::-webkit-scrollbar { display: none; }
 
-/* Continue watching rail */
+.shortlist-tile {
+  flex: 0 0 min(288px, 78vw);
+}
+
+/* Shortlist footer: a bit more breathing room */
+.shortlist-tile .tile-body {
+  padding-top: var(--space-3);
+}
+
+.shortlist-tile .tile-title {
+  font-size: var(--fs-lg);
+  font-weight: 650;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.25;
+}
+
+.shortlist-tile .tile-reason,
+.shortlist-tile .tile-context {
+  font-size: var(--fs-sm);
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Continue watching rail — horizontal dense cards */
 
 .continue-rail {
   display: flex;
-  gap: var(--space-4);
+  gap: 10px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-padding: 0 var(--space-5);
-  padding-bottom: var(--space-2);
+  padding: 0 var(--space-5) var(--space-2);
+  margin: 0 calc(-1 * var(--space-5));
   -webkit-overflow-scrolling: touch;
 }
 
 .continue-rail::-webkit-scrollbar { display: none; }
 
-.continue-tile.caught-up .tile-poster {
-  opacity: 0.6;
+.continue-card {
+  position: relative;
+  flex: 0 0 min(256px, 76vw);
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition: box-shadow 180ms ease, transform 180ms ease;
+}
+
+.continue-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.continue-card.caught-up {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .continue-card.caught-up {
+    animation: caught-up-exit 300ms ease 2000ms both;
+  }
+}
+
+.continue-card-poster {
+  flex: 0 0 56px;
+  height: 100%;
+  min-height: 84px;
+  background: var(--well);
+  overflow: hidden;
+}
+
+.continue-card-poster-fallback {
+  width: 100%;
+  height: 100%;
+  min-height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink-faint);
+  background: var(--well);
+}
+
+.continue-card-body {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.continue-card-title {
+  font-size: var(--fs-md);
+  font-weight: 650;
+  color: var(--ink);
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.continue-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.continue-ep-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--accent);
+  font-feature-settings: "tnum";
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .continue-ep-label {
+    animation: ep-advance 220ms ease;
+  }
+}
+
+.continue-runtime {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  font-feature-settings: "tnum";
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.continue-mark-btn {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--ink-soft);
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+
+.continue-mark-btn:hover {
+  background: var(--surface-sunken);
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.continue-caught-up {
+  margin-top: auto;
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  color: var(--new);
+}
+
+.continue-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--brand) 18%, transparent);
+}
+
+.continue-progress-fill {
+  height: 100%;
+  background: var(--brand);
+  min-width: 2px;
+  transition: width 300ms ease;
 }
 
 /* Discovery rails */
