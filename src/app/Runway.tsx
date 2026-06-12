@@ -434,6 +434,20 @@ function App() {
     })
   }, [watching, libraryFilter])
 
+  const libraryFilterCounts = useMemo(() => {
+    const counts: Record<LibraryFilter, number> = { all: watching.length, watching: 0, watchlisted: 0, finished: 0, favourites: 0, recommended: 0, abandoned: 0 }
+    for (const item of watching) {
+      const rel = item.relationship ?? statusToRelationship(item.status, item.done)
+      if (rel === 'tracking') counts.watching++
+      if (rel === 'watchlisted') counts.watchlisted++
+      if (rel === 'finished') counts.finished++
+      if (rel === 'abandoned') counts.abandoned++
+      if (item.favouritedAt) counts.favourites++
+      if (item.recommendedAt) counts.recommended++
+    }
+    return counts
+  }, [watching])
+
   const watchGroups = useMemo(
     () =>
       watchStatusOrder
@@ -2081,16 +2095,20 @@ function App() {
               ['favourites', 'Favourites'],
               ['recommended', 'Recommended'],
               ['abandoned', 'Abandoned'],
-            ] as [LibraryFilter, string][]).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                className={libraryFilter === value ? 'library-filter-chip active' : 'library-filter-chip'}
-                onClick={() => setLibraryFilter(value)}
-              >
-                {label}
-              </button>
-            ))}
+            ] as [LibraryFilter, string][]).map(([value, label]) => {
+              const count = libraryFilterCounts[value]
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  className={libraryFilter === value ? 'library-filter-chip active' : 'library-filter-chip'}
+                  onClick={() => setLibraryFilter(value)}
+                >
+                  {label}
+                  {count > 0 && <span className="library-filter-count">{count}</span>}
+                </button>
+              )
+            })}
           </div>
           <form className="add-form" onSubmit={addWatching}>
             <input name="title" placeholder="Programme or film" required />

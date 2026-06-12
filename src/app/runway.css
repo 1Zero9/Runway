@@ -4197,6 +4197,13 @@ kbd {
   font-weight: 500;
 }
 
+.library-filter-count {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  margin-left: 4px;
+  font-feature-settings: "tnum";
+}
+
 /* ─── Controls Phase 4 — Abandoned section ──────────────────────────────────── */
 
 .abandoned-meta {
