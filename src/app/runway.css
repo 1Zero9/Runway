@@ -1757,6 +1757,15 @@ button:disabled {
   font-weight: 650;
 }
 
+.recommended-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
 .check {
   width: 28px;
   height: 28px;

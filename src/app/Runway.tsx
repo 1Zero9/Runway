@@ -2289,6 +2289,12 @@ function App() {
                               <Heart size={13} fill={isFav ? 'currentColor' : 'none'} />
                               {isFav ? 'Favourited' : 'Favourite'}
                             </button>
+                            {item.recommendedAt && (
+                              <span className="recommended-mark" title="You recommended this">
+                                <Send size={11} />
+                                Recommended
+                              </span>
+                            )}
                             <div className="star-rating" aria-label={`${item.title} rating`}>
                               {[1, 2, 3, 4, 5].map((rating) => (
                                 <button
