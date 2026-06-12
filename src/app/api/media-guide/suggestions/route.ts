@@ -47,24 +47,38 @@ export async function GET() {
     limit 6
   `
 
-  // Also use highly-rated watchlist items that have a tmdb_id
-  const ratedItems = await sql`
-    select tmdb_id, type, title
-    from media_watchlist
-    where tmdb_id is not null and user_rating >= 4
-    order by user_rating desc, created_at desc
-    limit 4
-  `
+  // Favourited watchlist items get double seeding weight
+  const [ratedItems, favouritedItems] = await Promise.all([
+    sql`
+      select tmdb_id, type, title
+      from media_watchlist
+      where tmdb_id is not null and user_rating >= 4
+      order by user_rating desc, created_at desc
+      limit 4
+    `,
+    sql`
+      select tmdb_id, type, title
+      from media_watchlist
+      where tmdb_id is not null and favourited_at is not null
+      order by favourited_at desc
+      limit 4
+    `,
+  ])
 
   type SeedItem = { tmdb_id: number; media_type: string; title: string }
 
+  const mapWatchlistItem = (r: { tmdb_id: number; type: string; title: string }): SeedItem => ({
+    tmdb_id: r.tmdb_id,
+    media_type: r.type === 'film' ? 'movie' : 'tv',
+    title: r.title,
+  })
+
   const seeds: SeedItem[] = [
     ...(favorites as SeedItem[]),
-    ...(ratedItems as { tmdb_id: number; type: string; title: string }[]).map((r) => ({
-      tmdb_id: r.tmdb_id,
-      media_type: r.type === 'film' ? 'movie' : 'tv',
-      title: r.title,
-    })),
+    // Favourites appear twice — effective double weight in the seed pool
+    ...(favouritedItems as { tmdb_id: number; type: string; title: string }[]).map(mapWatchlistItem),
+    ...(favouritedItems as { tmdb_id: number; type: string; title: string }[]).map(mapWatchlistItem),
+    ...(ratedItems as { tmdb_id: number; type: string; title: string }[]).map(mapWatchlistItem),
   ]
 
   if (!seeds.length) {
