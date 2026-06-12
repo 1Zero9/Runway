@@ -4,6 +4,49 @@ Read this at the start of every session before touching any CSS or component cod
 
 ---
 
+## STYLE-RULES visual constitution audit (2026-06-12)
+
+**Status: complete — all violations fixed, screenshots confirm**
+
+Full audit of `src/app/runway.css` and `src/app/layout.tsx` against `docs/STYLE-RULES.md`.
+
+### Violations found and fixed
+
+**1. Font: Fraunces → Playfair Display (rule 4.1)**
+`layout.tsx` replaced `Fraunces` (with WONK/SOFT axes) with `Playfair_Display`. The variable name `--font-display` is unchanged; all downstream CSS continues to work without edits.
+
+**2. Topbar: white pill → flat (rule 6.2)**
+Removed `border: 1px solid var(--line)`, `border-radius: var(--space-4)`, `background: var(--surface)`, `box-shadow: var(--shadow-sm)` from `.topbar`. The nav bar is now frameless — only content is visible, no chrome box.
+
+**3. Tabs container: bordered group → bare flex row (rule 6.2)**
+Removed `border`, `border-radius: 14px`, `background: var(--surface)`, `padding` from `.tabs`. Gap widened from `var(--space-1)` → `var(--space-3)`.
+
+**4. Active tab: filled red block → 2px underline (rule 6.3)**
+Decoupled `.tab.active` from `.primary-button`. Active tab now: `font-weight: 700`, `color: var(--ink)`, `background: transparent`, plus a `::after` pseudo-element: `width: 20px`, `height: 2px`, `background: var(--accent)`, centred at bottom.
+
+**5. Icon buttons: ghost at rest (rule 3.6)**
+Removed `.icon-button` and `.tab` from the shared `border: 1px solid var(--line); background: var(--surface)` rule. Added dedicated rule: `.icon-button { border: 1px solid transparent; background: transparent; }`. Hover sunken state retained via existing `.icon-button:hover`.
+
+**6. Wordmark: accent red → ink + display font (rule 6.1)**
+`.topbar-wordmark` now has `font-family: var(--font-display), Georgia, serif`, `color: var(--ink)` (was `color: var(--accent)`), `font-weight: 700` (was 750).
+
+**7. Poster fallback initial: display font removed (rule 4.1)**
+`.poster-fallback-initial` had `font-family: var(--font-display)` and `font-weight: 500`. Removed the font-family override (falls back to UI font), bumped weight to 600.
+
+### Screenshot evidence (2026-06-12)
+
+`docs/screenshots/phase4-final-1280-masthead.png` — flat topbar, "Runway" wordmark in black Playfair Display, "Dashboard" tab with 2px red underline (not filled block), "Friday, 12 June" greeting in Playfair Display.  
+`docs/screenshots/phase4-final-375-masthead.png` — mobile view with flat styling, bottom nav correct.
+
+### Pre-commit checklist (STYLE-RULES §8)
+- [x] TypeScript clean (`npx tsc --noEmit` → no output)
+- [x] 88 tests pass
+- [x] Screenshots at 1280 and 375 attached above
+- [x] No new inline styles added
+- [x] No hardcoded colour values added
+
+---
+
 ## RESET Phase 4 — Three modules made stylish (2026-06-12)
 
 **Status: implementation complete. Awaiting Steve's screenshot sign-off + prod-bar verdict before Phase 5.**
