@@ -130,7 +130,7 @@ export type RecommendationListPayload = {
 }
 
 export async function recommendationsAddItem(
-  item: Omit<RecommendationItemPayload, 'id' | 'note' | 'dominantColour'> & { listId: string | null },
+  item: Omit<RecommendationItemPayload, 'id' | 'dominantColour' | 'note'> & { listId: string | null; note?: string },
 ): Promise<ActionResult<RecommendationItemPayload>> {
   try {
     const res = await fetch('/api/media-guide/recommendations', {

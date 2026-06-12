@@ -4123,6 +4123,19 @@ kbd {
   color: var(--ink);
 }
 
+.completion-note-input {
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  flex: 1;
+  min-width: 0;
+  max-width: 200px;
+}
+.completion-note-input::placeholder { color: var(--ink-faint); }
+
 @media (prefers-reduced-motion: no-preference) {
   .completion-card { animation: toast-up 200ms ease both; }
 }

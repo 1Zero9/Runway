@@ -1402,7 +1402,7 @@ function App() {
     setCompletionPrompt(null)
   }
 
-  async function recommendFromCompletion(item: WatchingItem, listId: string | null) {
+  async function recommendFromCompletion(item: WatchingItem, listId: string | null, note = '') {
     const result = await recommendationsAddItem({
       listId,
       tmdbId: item.tmdbId ?? null,
@@ -1412,6 +1412,7 @@ function App() {
       service: item.service,
       posterPath: item.posterPath ?? null,
       overview: item.notes ?? '',
+      note,
     })
     if (result.ok) {
       setRecommendationItems((current) => [result.data as RecommendationItem, ...current])
@@ -1487,7 +1488,7 @@ function App() {
             item={liveItem}
             lists={recommendationLists}
             onFavourite={() => { void toggleFavourite(liveItem) }}
-            onRecommend={(listId) => { void recommendFromCompletion(liveItem, listId); dismissCompletionPrompt() }}
+            onRecommend={(listId, note) => { void recommendFromCompletion(liveItem, listId, note); dismissCompletionPrompt() }}
             onDismiss={dismissCompletionPrompt}
           />
         )
@@ -3750,11 +3751,19 @@ function CompletionPromptCard({
   item: WatchingItem
   lists: RecommendationList[]
   onFavourite: () => void
-  onRecommend: (listId: string | null) => void
+  onRecommend: (listId: string | null, note: string) => void
   onDismiss: () => void
 }) {
   const [showPicker, setShowPicker] = useState(false)
+  const [note, setNote] = useState('')
+  const [selectedList, setSelectedList] = useState<string>('')
   const isFav = Boolean(item.favouritedAt)
+
+  function submitRecommend() {
+    onRecommend(selectedList || null, note.trim())
+    setShowPicker(false)
+  }
+
   return (
     <div className="completion-card" role="complementary" aria-label="Completion actions">
       <div className="completion-card-head">
@@ -3775,14 +3784,24 @@ function CompletionPromptCard({
         {showPicker ? (
           <div className="completion-list-picker">
             <select
-              autoFocus
-              defaultValue=""
-              onChange={(e) => { onRecommend(e.target.value || null); setShowPicker(false) }}
+              value={selectedList}
+              onChange={(e) => setSelectedList(e.target.value)}
             >
-              <option value="" disabled>Pick a list…</option>
               <option value="">Inbox (no list)</option>
               {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
+            <input
+              className="completion-note-input"
+              placeholder="Optional note…"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submitRecommend() }}
+              maxLength={160}
+            />
+            <button type="button" className="completion-action" onClick={submitRecommend}>
+              <Send size={12} />
+              Send
+            </button>
             <button type="button" className="ep-catchup-dismiss" onClick={() => setShowPicker(false)}>×</button>
           </div>
         ) : (
