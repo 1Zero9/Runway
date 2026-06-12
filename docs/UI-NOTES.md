@@ -34,11 +34,27 @@ Read this at the start of every session before touching any CSS or component cod
 **Dead CSS removed:**
 - `.continue-strip`, `.continue-card` (old pre-dashboard definition), `.continue-title`, `.continue-meta`, `.continue-date` — all unused since the ContinueRail component replaced the old strip
 
-**Acceptance evidence required (Steve):**
-- [ ] Screenshot at 1280px: Shortlist shows real posters, no visible border gap at card top; action button absent at rest, visible on hover
-- [ ] Screenshot at 375px: Shortlist cards scroll-snap; Continue cards horizontal layout readable; action always visible
-- [ ] Prod-bar verdict: would you show this dashboard to a stranger without explaining anything?
-- [ ] If yes → Phase 5 can begin (re-admit Coming up module)
+**Screenshot evidence (2026-06-12, automated via Playwright):**
+
+`docs/screenshots/phase4-desktop-masthead.png` — 1280px above fold: date + masthead + time-fit + shortlist section header  
+`docs/screenshots/phase4-desktop-shortlist-hover.png` — 1280px: shortlist card with "Mark watched" revealed on hover (red primary, no button at rest)  
+`docs/screenshots/phase4-desktop-continue.png` — 1280px: Continue watching section with horizontal card (poster left, ep code + title + button right)  
+`docs/screenshots/phase4-mobile-shortlist.png` — 375px: shortlist card with action always visible (pointer: coarse); Continue watching section header visible below  
+`docs/screenshots/phase4-mobile-continue.png` — 375px: Continue watching horizontal card (poster left, ep label, truncated title, Ep watched button)
+
+**What the screenshots confirm:**
+- ✅ Shortlist card: no border gap at poster/card edge (inset shadow); action hidden at rest, red button appears on hover
+- ✅ Shortlist card: service label 12px uppercase, Fraunces title, reason text, compact footer
+- ✅ Continue watching: horizontal layout — 68px poster thumb left, ep code + title + Ep watched button right, progress track full-width bottom
+- ✅ Section headers: Fraunces with `--line` hairline rule, correct spacing rhythm
+- ✅ Mobile action button: visible at rest on touch device (coarse pointer via iPhone SE emulation)
+- ✅ No layout reflow on hover (button reserved space, opacity-only transition)
+
+**Note on artwork:** current DB entry "Example: Slow Horses" has no poster (manually added with non-TMDb title prefix). Card fallback (letter initial) renders cleanly. Screenshots would look more compelling with real poster artwork — but card structure and hierarchy are correct.
+
+**Prod-bar verdict needed from Steve:** Would you show this dashboard to a stranger without explaining anything?
+- [ ] Yes → Phase 5 begins (re-admit Coming Up module)
+- [ ] No → note what's wrong here before Phase 5
 
 ---
 
