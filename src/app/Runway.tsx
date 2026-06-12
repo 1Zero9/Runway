@@ -1711,15 +1711,17 @@ function App() {
           <TabButton active={tab === 'runway'} icon={<Sparkles size={18} />} label="Runway" onClick={() => setTab('runway')} />
           <TabButton active={tab === 'library'} icon={<Star size={18} />} label="Library" onClick={() => setTab('library')} />
         </nav>
+        <button
+          className="topbar-search-field"
+          type="button"
+          aria-label="Search (⌘K)"
+          onClick={() => setSearchOpen(true)}
+        >
+          <Search size={14} />
+          <span className="topbar-search-hint">Search shows &amp; films…</span>
+          <kbd className="topbar-search-kbd">⌘K</kbd>
+        </button>
         <div className="topbar-actions">
-          <button
-            className="icon-button search-icon-btn"
-            type="button"
-            aria-label="Search (⌘K)"
-            onClick={() => setSearchOpen(true)}
-          >
-            <Search size={20} />
-          </button>
           <button className={tab === 'guide' ? 'icon-button active-icon' : 'icon-button'} type="button" aria-label="TV Guide" onClick={() => setTab('guide')}>
             <Tv size={20} />
           </button>
@@ -1763,9 +1765,9 @@ function App() {
               </>
             )}
             {/* Greeting */}
-            <div className="dashboard-greeting">
-              <h2 className="greeting-date">{formatGreeting(now)}</h2>
-              {mastheadLine && <p className="greeting-masthead">{mastheadLine}</p>}
+            <div className={mastheadLine ? 'dashboard-greeting has-masthead' : 'dashboard-greeting'}>
+              <p className="greeting-date">{formatGreeting(now)}</p>
+              {mastheadLine && <h2 className="greeting-masthead">{mastheadLine}</h2>}
             </div>
 
             {/* Time-fit chips */}
@@ -2452,15 +2454,13 @@ function App() {
                           )}
                           {watchStatus === 'dropped' && (
                             <div className="abandoned-meta">
-                              {item.lastWatchedAt
-                                ? `Dropped after ${formatShortDate(item.lastWatchedAt)}`
-                                : 'Dropped'}
+                              {formatDroppedMonth(item.lastWatchedAt)}
                               <button
                                 type="button"
                                 className="pickup-btn"
                                 onClick={() => transitionRelationship(item, 'tracking')}
                               >
-                                ▶ Pick it back up
+                                Pick it back up
                               </button>
                             </div>
                           )}
@@ -4243,6 +4243,20 @@ function formatShortDate(value: string) {
     month: 'short',
     timeZone: 'Europe/Dublin',
   }).format(new Date(value))
+}
+
+function formatDroppedMonth(value: string | null | undefined): string {
+  if (!value) return 'Dropped'
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(Date.UTC(+value.slice(0, 4), +value.slice(5, 7) - 1, +value.slice(8, 10), 12))
+    : new Date(value)
+  const now = new Date()
+  const sameYear = d.getFullYear() === now.getFullYear()
+  return 'Dropped in ' + new Intl.DateTimeFormat('en-IE', {
+    month: 'long',
+    ...(!sameYear ? { year: 'numeric' } : {}),
+    timeZone: 'Europe/Dublin',
+  }).format(d)
 }
 
 function makePosterBlur(colour: string | null | undefined): string {

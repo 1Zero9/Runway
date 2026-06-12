@@ -2863,12 +2863,23 @@ button:disabled {
 }
 
 .greeting-date {
+  font-family: var(--font-ui);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink-faint);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+/* When a masthead line is absent, the date stands alone as the headline */
+.dashboard-greeting:not(.has-masthead) .greeting-date {
   font-family: var(--font-display);
-  font-size: var(--fs-3xl);
+  font-size: var(--fs-2xl);
   font-weight: 600;
   color: var(--ink);
-  line-height: 1.05;
-  letter-spacing: -0.01em; /* Fraunces looks best with tighter but not extreme tracking */
+  letter-spacing: -0.01em;
+  text-transform: none;
 }
 
 .time-fit-bar {
@@ -4103,8 +4114,49 @@ kbd {
 
 /* ─── Controls Phase 3 — global search overlay ────────────────────────────── */
 
-.search-icon-btn {
-  /* Inherits .icon-button styles */
+.topbar-search-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  color: var(--ink-faint);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  transition: border-color 150ms ease, background 150ms ease;
+  flex-shrink: 0;
+}
+
+.topbar-search-field:hover {
+  background: var(--surface);
+  border-color: var(--ink-faint);
+}
+
+.topbar-search-hint {
+  display: none;
+}
+
+.topbar-search-kbd {
+  display: none;
+  font-size: 10px;
+  font-family: var(--font-ui);
+  color: var(--ink-faint);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0 3px;
+  line-height: 1.5;
+  background: var(--surface);
+}
+
+@media (min-width: 720px) {
+  .topbar-search-hint {
+    display: inline;
+  }
+  .topbar-search-kbd {
+    display: inline;
+  }
 }
 
 .search-overlay {
@@ -4654,12 +4706,12 @@ kbd {
 
 .greeting-masthead {
   font-family: var(--font-display);
-  font-size: var(--fs-lg);
-  color: var(--ink-soft);
-  margin-top: 4px;
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.35;
+  font-size: var(--fs-3xl);
+  color: var(--ink);
+  margin-top: 2px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 /* ─── POP Phase A — Functional chip system ───────────────────────────────────── */
