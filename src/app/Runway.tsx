@@ -1909,31 +1909,35 @@ function App() {
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">Worth a look</h2>
               <div className="suggestion-strip">
-                {suggestions.filter((s) => s.poster_path).slice(0, 6).map((item) => (
-                  <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
-                    <Image
-                      src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
-                      alt=""
-                      width={44}
-                      height={64}
-                      style={{ width: '44px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block', flexShrink: 0 }}
-                      placeholder="blur"
-                      blurDataURL={makePosterBlur(null)}
-                    />
-                    <div className="suggestion-info">
-                      <strong>{item.title ?? item.name}</strong>
-                      <span>{item.provider}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="icon-button quiet"
-                      aria-label={`Track ${item.title ?? item.name}`}
-                      onClick={() => persistWatchingItem(mediaToWatchingItem(item))}
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </article>
-                ))}
+                {suggestions.filter((s) => s.poster_path).slice(0, 6).map((item) => {
+                  const isTracked = libraryTmdbIds.has(item.id)
+                  return (
+                    <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
+                      <Image
+                        src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
+                        alt=""
+                        width={44}
+                        height={64}
+                        style={{ width: '44px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block', flexShrink: 0 }}
+                        placeholder="blur"
+                        blurDataURL={makePosterBlur(null)}
+                      />
+                      <div className="suggestion-info">
+                        <strong>{item.title ?? item.name}</strong>
+                        <span>{item.provider}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className={isTracked ? 'icon-button quiet suggestion-tracked' : 'icon-button quiet'}
+                        aria-pressed={isTracked}
+                        aria-label={isTracked ? `${item.title ?? item.name} is in your library` : `Track ${item.title ?? item.name}`}
+                        onClick={() => { if (!isTracked) persistWatchingItem(mediaToWatchingItem(item)) }}
+                      >
+                        {isTracked ? <Check size={16} /> : <Plus size={16} />}
+                      </button>
+                    </article>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -2253,14 +2257,18 @@ function App() {
             {([
               ['watching', 'Watching'],
               ['watchlisted', 'Watchlist'],
-              ['history', 'History'],
+              ['finished', 'Finished'],
               ['favourites', 'Favourites'],
+              ['recommended', 'Recommended'],
+              ['abandoned', 'Abandoned'],
             ] as [LibraryFilter, string][]).map(([value, label]) => {
               const count = libraryFilterCounts[value]
+              if (count === 0 && value !== 'watching' && value !== 'watchlisted' && value !== 'finished') return null
               return (
                 <button
                   key={value}
                   type="button"
+                  aria-pressed={libraryFilter === value}
                   className={libraryFilter === value ? 'library-filter-chip active' : 'library-filter-chip'}
                   onClick={() => setLibraryFilter(value)}
                 >
@@ -2328,14 +2336,14 @@ function App() {
               {!calendarEvents.length && <p className="muted-copy">Track shows or load cinema releases to fill the calendar.</p>}
             </div>
           </div>
-          {libraryFilter === 'history' && (
+          {libraryFilter === 'finished' && (
             <HistoryGrid
               items={filteredLibraryItems}
               onReactivate={reactivateItem}
               onSentimentChange={(item, s) => void updateSentiment(item, s)}
             />
           )}
-          {libraryFilter !== 'history' && <div className="watch-list">
+          {libraryFilter !== 'finished' && <div className="watch-list">
             {watchGroups.map((group) => (
               <section className="watch-group" key={group.status}>
                 <div className="watch-group-heading">
@@ -4534,7 +4542,7 @@ function SearchOverlay({
           {/* TMDb results */}
           {(!showEmpty && (tmdbResults.length > 0 || tmdbLoading)) && (
             <div className="search-group">
-              <p className="search-section-label">Add to your history</p>
+              <p className="search-section-label">Add something new</p>
               {tmdbLoading && <div className="search-skeleton-row" />}
               {tmdbResults.map((item, i) => {
                 const idx = libraryResults.length + i

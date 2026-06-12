@@ -648,6 +648,10 @@ button:disabled {
   text-overflow: ellipsis;
 }
 
+.suggestion-tracked {
+  color: var(--accent);
+}
+
 /* ── Navigation / Tabs ──────────────────────────────────────────────────── */
 
 .tabs {
