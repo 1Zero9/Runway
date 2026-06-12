@@ -965,31 +965,61 @@ function App() {
     await updateWatchingItem(item, { done: nextDone, status })
   }
 
-  async function markWatched(item: WatchingItem) {
+  async function markWatched(item: WatchingItem, detail?: TmdbShowDetail) {
     const nextStatus = item.type === 'film' ? 'completed' : 'watching'
     const priorWatchedCount = item.watchedCount ?? 0
     const priorLastWatchedAt = item.lastWatchedAt ?? null
     const priorDone = item.done
     const priorStatus = item.status ?? 'watching'
+    const priorSeason = item.currentSeason ?? 1
+    const priorEpisode = item.currentEpisode ?? 0
+
+    let nextSeason = priorSeason
+    let nextEpisode = priorEpisode
+    let caughtUp = false
+
+    if (detail && item.type !== 'film' && item.type !== 'sport') {
+      const currentSeasonInfo = detail.seasons.find((s) => s.seasonNumber === priorSeason)
+      if (currentSeasonInfo && priorEpisode < currentSeasonInfo.episodeCount) {
+        nextEpisode = priorEpisode + 1
+      } else {
+        const nextSeasonInfo = detail.seasons.find((s) => s.seasonNumber === priorSeason + 1)
+        if (nextSeasonInfo) { nextSeason = priorSeason + 1; nextEpisode = 1 }
+      }
+      const lastSeason = detail.seasons[detail.seasons.length - 1]
+      if (lastSeason && nextSeason >= lastSeason.seasonNumber && nextEpisode >= lastSeason.episodeCount) {
+        caughtUp = true
+      }
+    }
 
     await updateWatchingItem(item, {
       done: nextStatus === 'completed',
       lastWatchedAt: formatIrelandDate(new Date()),
       status: nextStatus,
       watchedCount: priorWatchedCount + 1,
+      currentSeason: nextSeason,
+      currentEpisode: nextEpisode,
     })
 
-    showToast(
-      item.type === 'film' ? `${item.title} watched` : `${item.title} — episode watched`,
-      async () => {
-        await updateWatchingItem(item, {
-          done: priorDone,
-          lastWatchedAt: priorLastWatchedAt,
-          status: priorStatus,
-          watchedCount: priorWatchedCount,
-        })
-      },
-    )
+    const toastMsg = caughtUp
+      ? `${item.title} — all caught up`
+      : item.type === 'film' ? `${item.title} watched` : `${item.title} — episode watched`
+
+    showToast(toastMsg, async () => {
+      await updateWatchingItem(item, {
+        done: priorDone,
+        lastWatchedAt: priorLastWatchedAt,
+        status: priorStatus,
+        watchedCount: priorWatchedCount,
+        currentSeason: priorSeason,
+        currentEpisode: priorEpisode,
+      })
+    })
+
+    if (caughtUp) {
+      setPulsingItemId(item.id)
+      setTimeout(() => setPulsingItemId((id) => (id === item.id ? null : id)), 700)
+    }
   }
 
   async function updateWatchingRating(item: WatchingItem, userRating: number) {
@@ -1533,7 +1563,7 @@ function App() {
                       key={entry.item.id}
                       entry={entry}
                       showDetail={entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined}
-                      onMarkWatched={() => markWatched(entry.item)}
+                      onMarkWatched={() => markWatched(entry.item, entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined)}
                     />
                   ))}
                 </div>
@@ -1562,7 +1592,7 @@ function App() {
           {reconItems.length > 0 && (
             <ReconciliationCard
               items={reconItems}
-              onConfirm={(item) => markWatched(item)}
+              onConfirm={(item) => markWatched(item, item.tmdbId ? showDetailCache[item.tmdbId] : undefined)}
               onDismiss={() => setReconDismissed(true)}
             />
           )}
@@ -1981,7 +2011,7 @@ function App() {
       {tab === 'library' && (
         <section className="view">
           {inProgressShows.length > 0 && (
-            <UpNextRail items={inProgressShows} onMarkWatched={markWatched} />
+            <UpNextRail items={inProgressShows} showDetailCache={showDetailCache} onMarkWatched={markWatched} />
           )}
           <div className="library-filter-bar" role="group" aria-label="Filter your library">
             {([
@@ -2169,7 +2199,7 @@ function App() {
                             </div>
                           )}
                           <div className="watch-feedback-row">
-                            <button type="button" onClick={() => markWatched(item)}>
+                            <button type="button" onClick={() => markWatched(item, item.tmdbId ? showDetailCache[item.tmdbId] : undefined)}>
                               <Check size={14} />
                               {item.type === 'film' ? 'Watched' : 'Ep watched'}
                             </button>
@@ -2660,7 +2690,7 @@ function ContinueRail({
 }: {
   items: WatchingItem[]
   showDetailCache: Record<number, TmdbShowDetail>
-  onMarkWatched: (item: WatchingItem) => void
+  onMarkWatched: (item: WatchingItem, detail?: TmdbShowDetail) => void
 }) {
   return (
     <div className="continue-rail">
@@ -2696,10 +2726,10 @@ function ContinueRail({
               </div>
             </div>
             <div className="continue-card-info">
-              {epLabel && <span className="continue-card-ep">{epLabel}</span>}
+              {epLabel && <span key={epLabel} className="continue-card-ep">{epLabel}</span>}
               <span className="continue-card-title">{item.title}</span>
             </div>
-            <button type="button" className="continue-card-mark" onClick={() => onMarkWatched(item)}>
+            <button type="button" className="continue-card-mark" onClick={() => onMarkWatched(item, showDetail)}>
               <Check size={11} />
               {item.type === 'film' ? 'Watched' : 'Ep watched'}
             </button>
@@ -2842,27 +2872,32 @@ function WatchlistGrid({
 
 function UpNextRail({
   items,
+  showDetailCache,
   onMarkWatched,
 }: {
   items: WatchingItem[]
-  onMarkWatched: (item: WatchingItem) => void
+  showDetailCache: Record<number, TmdbShowDetail>
+  onMarkWatched: (item: WatchingItem, detail?: TmdbShowDetail) => void
 }) {
   return (
     <div className="upnext-rail">
-      {items.slice(0, 8).map((item, index) => (
-        <div key={item.id} className="upnext-card" style={{ '--card-index': index } as CSSProperties}>
-          <span className="upnext-episode">
-            {item.type !== 'film' && item.type !== 'sport'
-              ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
-              : item.service}
-          </span>
-          <span className="upnext-title">{item.title}</span>
-          <button type="button" className="upnext-mark" onClick={() => onMarkWatched(item)}>
-            <Check size={11} />
-            {item.type === 'film' ? 'Watched' : 'Ep watched'}
-          </button>
-        </div>
-      ))}
+      {items.slice(0, 8).map((item, index) => {
+        const detail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
+        const epLabel =
+          item.type !== 'film' && item.type !== 'sport'
+            ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
+            : item.service
+        return (
+          <div key={item.id} className="upnext-card" style={{ '--card-index': index } as CSSProperties}>
+            <span key={epLabel} className="upnext-episode">{epLabel}</span>
+            <span className="upnext-title">{item.title}</span>
+            <button type="button" className="upnext-mark" onClick={() => onMarkWatched(item, detail)}>
+              <Check size={11} />
+              {item.type === 'film' ? 'Watched' : 'Ep watched'}
+            </button>
+          </div>
+        )
+      })}
     </div>
   )
 }

@@ -552,6 +552,11 @@ button:disabled {
   transform: translateY(-1px);
 }
 
+@keyframes ep-advance {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .upnext-episode {
   font-size: var(--fs-sm);
   font-weight: 700;
@@ -559,6 +564,7 @@ button:disabled {
   font-feature-settings: "tnum";
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  animation: ep-advance 0.22s ease;
 }
 
 .upnext-title {
@@ -2936,6 +2942,7 @@ button:disabled {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-weight: 500;
+  animation: ep-advance 0.22s ease;
 }
 
 .continue-card-title {
