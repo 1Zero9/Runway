@@ -2299,6 +2299,7 @@ function App() {
                           showDetail={showDetail}
                           onUpdateEpisode={handleEpisodeUpdate}
                           onUpdateLeavingDate={updateLeavingDate}
+                          onToggleFavourite={() => toggleFavourite(item)}
                         />
                       )}
                     </div>
@@ -3276,11 +3277,13 @@ function ShowDetailPanel({
   showDetail,
   onUpdateEpisode,
   onUpdateLeavingDate,
+  onToggleFavourite,
 }: {
   item: WatchingItem
   showDetail: TmdbShowDetail | undefined
   onUpdateEpisode: (item: WatchingItem, season: number, episode: number) => void
   onUpdateLeavingDate: (item: WatchingItem, date: string | null) => void
+  onToggleFavourite: () => void
 }) {
   const [pendingCatchup, setPendingCatchup] = useState<{ season: number; episode: number } | null>(null)
   const [editingLeaving, setEditingLeaving] = useState(false)
@@ -3292,15 +3295,26 @@ function ShowDetailPanel({
   if (!showDetail) {
     return (
       <div className="show-detail-panel">
-        <div className="show-detail-leaving">
-          <LeavingDateRow
-            item={item}
-            daysUntilLeaving={daysUntilLeaving}
-            editing={editingLeaving}
-            onEdit={() => setEditingLeaving(true)}
-            onSave={(date) => { onUpdateLeavingDate(item, date); setEditingLeaving(false) }}
-            onCancel={() => setEditingLeaving(false)}
-          />
+        <div className="show-detail-meta">
+          <button
+            type="button"
+            className={Boolean(item.favouritedAt) ? 'toggle-chip active' : 'toggle-chip'}
+            aria-pressed={Boolean(item.favouritedAt)}
+            onClick={onToggleFavourite}
+          >
+            <Heart size={12} fill={Boolean(item.favouritedAt) ? 'currentColor' : 'none'} />
+            {Boolean(item.favouritedAt) ? 'Favourited' : 'Favourite'}
+          </button>
+          <div className="show-detail-leaving">
+            <LeavingDateRow
+              item={item}
+              daysUntilLeaving={daysUntilLeaving}
+              editing={editingLeaving}
+              onEdit={() => setEditingLeaving(true)}
+              onSave={(date) => { onUpdateLeavingDate(item, date); setEditingLeaving(false) }}
+              onCancel={() => setEditingLeaving(false)}
+            />
+          </div>
         </div>
         <p className="muted-copy">
           {item.tmdbId ? 'Loading episode data…' : 'Track from the Runway view to enable the episode grid.'}
@@ -3374,14 +3388,25 @@ function ShowDetailPanel({
         <span className="episode-label">
           {watchedCount}/{showDetail.numberOfEpisodes} episodes · {remainingLabel}
         </span>
-        <LeavingDateRow
-          item={item}
-          daysUntilLeaving={daysUntilLeaving}
-          editing={editingLeaving}
-          onEdit={() => setEditingLeaving(true)}
-          onSave={(date) => { onUpdateLeavingDate(item, date); setEditingLeaving(false) }}
-          onCancel={() => setEditingLeaving(false)}
-        />
+        <div className="show-detail-meta-actions">
+          <button
+            type="button"
+            className={Boolean(item.favouritedAt) ? 'toggle-chip active' : 'toggle-chip'}
+            aria-pressed={Boolean(item.favouritedAt)}
+            onClick={onToggleFavourite}
+          >
+            <Heart size={12} fill={Boolean(item.favouritedAt) ? 'currentColor' : 'none'} />
+            {Boolean(item.favouritedAt) ? 'Favourited' : 'Favourite'}
+          </button>
+          <LeavingDateRow
+            item={item}
+            daysUntilLeaving={daysUntilLeaving}
+            editing={editingLeaving}
+            onEdit={() => setEditingLeaving(true)}
+            onSave={(date) => { onUpdateLeavingDate(item, date); setEditingLeaving(false) }}
+            onCancel={() => setEditingLeaving(false)}
+          />
+        </div>
       </div>
       <div className="episode-grid">
         {showDetail.seasons.map((s) => (
