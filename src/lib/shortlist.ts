@@ -9,6 +9,8 @@ export type ShortlistRule =
   | 'STALLED'
   | 'START_FRESH'
 
+export type Sentiment = 'loved' | 'liked' | 'not_for_me'
+
 export type WatchlistItem = {
   id: string
   title: string
@@ -24,6 +26,9 @@ export type WatchlistItem = {
   posterPath?: string | null
   tmdbId?: number | null
   nextEpisode?: string
+  logMode?: 'active' | 'archive'
+  sentiment?: Sentiment | null
+  watchedEra?: string | null
 }
 
 export type EpisodeCounts = {
@@ -100,6 +105,7 @@ export function buildShortlist(
   for (const item of items) {
     const status = getStatus(item)
     if (status === 'completed' || status === 'dropped') continue
+    if (item.logMode === 'archive') continue
 
     const lw = item.lastWatchedAt ?? ''
     const counts = episodeCounts.get(item.id)
@@ -164,8 +170,8 @@ export function buildShortlist(
       }, lw)
     }
 
-    // START_FRESH
-    if (status === 'planned' || status === 'waiting') {
+    // START_FRESH — suppress not_for_me items entirely
+    if ((status === 'planned' || status === 'waiting') && item.sentiment !== 'not_for_me') {
       const serviceMatches =
         userProviders.length === 0 ||
         userProviders.some((p) => item.service.toLowerCase().includes(p.toLowerCase()))

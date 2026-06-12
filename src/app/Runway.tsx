@@ -25,6 +25,7 @@ import {
   ThumbsDown,
 } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
@@ -59,12 +60,13 @@ import './runway.css'
 type Tab = 'tonight' | 'runway' | 'library' | 'settings' | 'guide'
 type TimeFit = 'any' | '30min' | '1hour' | 'film'
 type ShortlistEntry = { item: WatchingItem; rule: ShortlistRule; reason: string; action: string }
+type TasteAnchor = { title: string; weight: number; sentiment: string }
 type ListingTimeMode = 'from_now' | 'full_day'
 type DiscoveryMediaType = 'all' | 'movie' | 'tv'
 type DiscoveryStatusFilter = 'all' | 'unselected' | RecommendationItem['status']
 type WatchStatus = 'planned' | 'watching' | 'waiting' | 'completed' | 'dropped'
 type WatchItemType = 'show' | 'film' | 'sport' | 'other'
-type LibraryFilter = 'all' | 'watching' | 'watchlisted' | 'finished' | 'favourites' | 'recommended' | 'abandoned'
+type LibraryFilter = 'all' | 'watching' | 'watchlisted' | 'finished' | 'history' | 'favourites' | 'recommended' | 'abandoned'
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -118,6 +120,8 @@ type Provider = {
   enabled: boolean
 }
 
+type Sentiment = 'loved' | 'liked' | 'not_for_me'
+
 type WatchingItem = {
   id: string
   title: string
@@ -139,6 +143,11 @@ type WatchingItem = {
   relationship?: Relationship | null
   favouritedAt?: string | null
   recommendedAt?: string | null
+  logMode?: 'active' | 'archive'
+  archiveCompletedAt?: string | null
+  sentiment?: Sentiment | null
+  sentimentAt?: string | null
+  watchedEra?: string | null
 }
 
 type TmdbShowDetail = {
@@ -312,6 +321,8 @@ function App() {
   const [transitioningItemId, setTransitioningItemId] = useState<string | null>(null)
   const [toastUndo, setToastUndo] = useState<(() => void) | null>(null)
   const [pendingConfirmId, setPendingConfirmId] = useState<string | null>(null)
+  const [tasteAnchors, setTasteAnchors] = useState<TasteAnchor[]>([])
+  const [tasteProviderWeights, setTasteProviderWeights] = useState<Record<string, number>>({})
   const [searchOpen, setSearchOpen] = useState(false)
   const [recentSearches, setRecentSearches] = useStoredState<string[]>('mediaguide.recentSearches', [])
   const [libraryFilter, setLibraryFilter] = useStoredState<LibraryFilter>('mediaguide.libraryFilter', 'watching')
@@ -325,7 +336,7 @@ function App() {
   const caughtUpTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const inProgressShows = watching
-    .filter((i) => getWatchStatus(i) === 'watching')
+    .filter((i) => getWatchStatus(i) === 'watching' && i.logMode !== 'archive')
     .sort((a, b) => (b.lastWatchedAt ?? '').localeCompare(a.lastWatchedAt ?? ''))
 
   const reconItems = useMemo(() => {
@@ -435,8 +446,9 @@ function App() {
     if (libraryFilter === 'all') return watching
     return watching.filter((item) => {
       const rel = item.relationship ?? statusToRelationship(item.status, item.done)
-      if (libraryFilter === 'watching') return rel === 'tracking'
+      if (libraryFilter === 'watching') return rel === 'tracking' && item.logMode !== 'archive'
       if (libraryFilter === 'watchlisted') return rel === 'watchlisted'
+      if (libraryFilter === 'history') return item.logMode === 'archive' || rel === 'finished'
       if (libraryFilter === 'finished') return rel === 'finished'
       if (libraryFilter === 'favourites') return Boolean(item.favouritedAt)
       if (libraryFilter === 'recommended') return Boolean(item.recommendedAt)
@@ -446,12 +458,13 @@ function App() {
   }, [watching, libraryFilter])
 
   const libraryFilterCounts = useMemo(() => {
-    const counts: Record<LibraryFilter, number> = { all: watching.length, watching: 0, watchlisted: 0, finished: 0, favourites: 0, recommended: 0, abandoned: 0 }
+    const counts: Record<LibraryFilter, number> = { all: watching.length, watching: 0, watchlisted: 0, finished: 0, history: 0, favourites: 0, recommended: 0, abandoned: 0 }
     for (const item of watching) {
       const rel = item.relationship ?? statusToRelationship(item.status, item.done)
-      if (rel === 'tracking') counts.watching++
+      if (rel === 'tracking' && item.logMode !== 'archive') counts.watching++
       if (rel === 'watchlisted') counts.watchlisted++
       if (rel === 'finished') counts.finished++
+      if (item.logMode === 'archive' || rel === 'finished') counts.history++
       if (rel === 'abandoned') counts.abandoned++
       if (item.favouritedAt) counts.favourites++
       if (item.recommendedAt) counts.recommended++
@@ -507,9 +520,24 @@ function App() {
         })
     )
     const userProviders = providers.filter((p) => p.enabled).flatMap((p) => p.match)
-    return buildShortlist(watching as WatchlistItem[], { today, tvTonightTitles, episodeCounts, userProviders }, timeFit)
-      .map((e) => ({ item: e.item as WatchingItem, rule: e.rule, reason: e.reason, action: e.action }))
-  }, [watching, timeFit, now, tvTonightTracked, showDetailCache, providers])
+    const entries = buildShortlist(watching as WatchlistItem[], { today, tvTonightTitles, episodeCounts, userProviders }, timeFit)
+
+    // Enrich START_FRESH reason lines with taste anchors
+    const topLovedAnchor = tasteAnchors.find((a) => a.sentiment === 'loved')
+    return entries.map((e) => {
+      if (e.rule === 'START_FRESH' && topLovedAnchor) {
+        // Pick an anchor whose service matches the item's service, or fall back to top loved
+        const serviceAnchor = tasteAnchors.find(
+          (a) => a.sentiment === 'loved' && e.item.service &&
+          (e.item.service.toLowerCase().includes(a.title.toLowerCase().slice(0, 8)) ||
+           tasteProviderWeights[e.item.service] !== undefined)
+        ) ?? topLovedAnchor
+        const reason = `Because you loved ${serviceAnchor.title} · ${e.item.service}`
+        return { item: e.item as WatchingItem, rule: e.rule, reason, action: e.action }
+      }
+      return { item: e.item as WatchingItem, rule: e.rule, reason: e.reason, action: e.action }
+    })
+  }, [watching, timeFit, now, tvTonightTracked, showDetailCache, providers, tasteAnchors, tasteProviderWeights])
 
   const libraryTmdbIds = useMemo(
     () => new Set(watching.map((w) => w.tmdbId).filter((id): id is number => id != null)),
@@ -855,6 +883,16 @@ function App() {
     })
   }, [])
 
+  useEffect(() => {
+    fetch('/api/media-guide/taste')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { anchors?: TasteAnchor[]; providerWeights?: Record<string, number> } | null) => {
+        if (data?.anchors) setTasteAnchors(data.anchors)
+        if (data?.providerWeights) setTasteProviderWeights(data.providerWeights)
+      })
+      .catch(() => {/* non-fatal */})
+  }, [])
+
   // Phase 1 artwork backfill: enrich DB rows that have tmdbId but no posterPath.
   // Runs once per session after the watchlist arrives from the server.
   useEffect(() => {
@@ -1143,13 +1181,33 @@ function App() {
     await updateWatchingItem(item, { userRating }, `${item.title} rated ${userRating} stars`)
   }
 
+  async function updateSentiment(item: WatchingItem, sentiment: Sentiment | null) {
+    await updateWatchingItem(item, { sentiment }, sentiment ? `${item.title} marked ${sentiment.replace('_', ' ')}` : undefined)
+  }
+
+  async function archiveItem(item: WatchingItem, sentiment?: Sentiment | null, era?: string | null) {
+    const patch: Partial<WatchingItem> = {
+      logMode: 'archive',
+      relationship: 'finished',
+      status: 'completed',
+      done: true,
+    }
+    if (sentiment !== undefined) patch.sentiment = sentiment
+    if (era !== undefined) patch.watchedEra = era
+    await updateWatchingItem(item, patch, `${item.title} added to history`)
+  }
+
+  async function reactivateItem(item: WatchingItem) {
+    await updateWatchingItem(item, { logMode: 'active', relationship: 'tracking', status: 'watching', done: false }, `${item.title} reactivated`)
+  }
+
   async function updateEpisode(item: WatchingItem, season: number, episode: number) {
     await updateWatchingItem(item, { currentSeason: season, currentEpisode: episode })
   }
 
   async function updateWatchingItem(
     item: WatchingItem,
-    patch: Partial<Pick<WatchingItem, 'done' | 'lastWatchedAt' | 'status' | 'userRating' | 'watchedCount' | 'currentSeason' | 'currentEpisode' | 'tmdbId' | 'leavingDate'>>,
+    patch: Partial<Pick<WatchingItem, 'done' | 'lastWatchedAt' | 'status' | 'userRating' | 'watchedCount' | 'currentSeason' | 'currentEpisode' | 'tmdbId' | 'leavingDate' | 'sentiment' | 'logMode' | 'watchedEra' | 'relationship'>>,
     successMessage?: string,
   ) {
     setWatching((current) =>
@@ -1467,17 +1525,17 @@ function App() {
     if (!completionDismissed.includes(item.id)) setCompletionPrompt(result.data as WatchingItem)
   }
 
-  async function seenItFromSearch(tmdbItem: TmdbItem) {
+  async function seenItFromSearch(tmdbItem: TmdbItem, sentiment?: Sentiment | null) {
     const newItem: WatchingItem = {
       ...mediaToWatchingItem(tmdbItem),
       relationship: 'finished',
       status: 'completed',
       done: true,
+      logMode: 'archive',
       lastWatchedAt: formatIrelandDate(new Date()),
+      ...(sentiment ? { sentiment } : {}),
     }
-    await persistWatchingItem(newItem, (saved) => {
-      if (!completionDismissed.includes(saved.id)) setCompletionPrompt(saved)
-    })
+    await persistWatchingItem(newItem)
   }
 
   async function toggleFavourite(item: WatchingItem) {
@@ -1617,7 +1675,7 @@ function App() {
           onClose={() => setSearchOpen(false)}
           onWatchlist={(item) => { persistWatchingItem({ ...mediaToWatchingItem(item), relationship: 'watchlisted', status: 'planned', done: false }); setSearchOpen(false) }}
           onTrack={(item) => { persistWatchingItem(mediaToWatchingItem(item)); setSearchOpen(false) }}
-          onSeen={(item) => { seenItFromSearch(item); setSearchOpen(false) }}
+          onArchive={(item, sentiment) => { void seenItFromSearch(item, sentiment) }}
           onAddRecent={addRecentSearch}
           onOpenLibraryItem={(id) => { setTab('library'); setDetailItemId(id); setSearchOpen(false) }}
         />
@@ -2183,13 +2241,10 @@ function App() {
           )}
           <div className="library-filter-bar" role="group" aria-label="Filter your library">
             {([
-              ['all', 'All'],
               ['watching', 'Watching'],
               ['watchlisted', 'Watchlist'],
-              ['finished', 'Finished'],
+              ['history', 'History'],
               ['favourites', 'Favourites'],
-              ['recommended', 'Recommended'],
-              ['abandoned', 'Abandoned'],
             ] as [LibraryFilter, string][]).map(([value, label]) => {
               const count = libraryFilterCounts[value]
               return (
@@ -2204,6 +2259,9 @@ function App() {
                 </button>
               )
             })}
+            <Link href="/history" className="library-filter-chip library-history-link">
+              + Build history
+            </Link>
           </div>
           <form className="add-form" onSubmit={addWatching}>
             <input name="title" placeholder="Programme or film" required />
@@ -2260,7 +2318,14 @@ function App() {
               {!calendarEvents.length && <p className="muted-copy">Track shows or load cinema releases to fill the calendar.</p>}
             </div>
           </div>
-          <div className="watch-list">
+          {libraryFilter === 'history' && (
+            <HistoryGrid
+              items={filteredLibraryItems}
+              onReactivate={reactivateItem}
+              onSentimentChange={(item, s) => void updateSentiment(item, s)}
+            />
+          )}
+          {libraryFilter !== 'history' && <div className="watch-list">
             {watchGroups.map((group) => (
               <section className="watch-group" key={group.status}>
                 <div className="watch-group-heading">
@@ -2382,10 +2447,12 @@ function App() {
                             </div>
                           )}
                           <div className="watch-feedback-row">
-                            <button type="button" onClick={() => markWatched(item, item.tmdbId ? showDetailCache[item.tmdbId] : undefined)}>
-                              <Check size={14} />
-                              {item.type === 'film' ? 'Watched' : 'Ep watched'}
-                            </button>
+                            {item.logMode !== 'archive' && (
+                              <button type="button" onClick={() => markWatched(item, item.tmdbId ? showDetailCache[item.tmdbId] : undefined)}>
+                                <Check size={14} />
+                                {item.type === 'film' ? 'Watched' : 'Ep watched'}
+                              </button>
+                            )}
                             <button
                               type="button"
                               aria-pressed={isFav}
@@ -2401,19 +2468,39 @@ function App() {
                                 Recommended
                               </span>
                             )}
-                            <div className="star-rating" aria-label={`${item.title} rating`}>
-                              {[1, 2, 3, 4, 5].map((rating) => (
+                            <div className="sentiment-row" role="group" aria-label={`${item.title} sentiment`}>
+                              {([['loved', '😍', 'Loved'], ['liked', '👍', 'Liked'], ['not_for_me', '😐', 'Not for me']] as [Sentiment, string, string][]).map(([s, emoji, label]) => (
                                 <button
-                                  aria-label={`Rate ${item.title} ${rating} stars`}
-                                  className={(item.userRating ?? 0) >= rating ? 'active' : ''}
-                                  key={rating}
+                                  key={s}
                                   type="button"
-                                  onClick={() => updateWatchingRating(item, rating)}
+                                  aria-pressed={item.sentiment === s}
+                                  className={item.sentiment === s ? `sentiment-chip sentiment-${s} active` : `sentiment-chip sentiment-${s}`}
+                                  onClick={() => updateSentiment(item, item.sentiment === s ? null : s)}
+                                  title={label}
                                 >
-                                  <Star size={14} fill="currentColor" />
+                                  {emoji} {label}
                                 </button>
                               ))}
                             </div>
+                            {item.logMode !== 'archive' && (
+                              <button
+                                type="button"
+                                className="archive-btn"
+                                title="Move to history (archive)"
+                                onClick={() => archiveItem(item, item.sentiment)}
+                              >
+                                Archive
+                              </button>
+                            )}
+                            {item.logMode === 'archive' && (
+                              <button
+                                type="button"
+                                className="pickup-btn"
+                                onClick={() => reactivateItem(item)}
+                              >
+                                ▶ Rewatch
+                              </button>
+                            )}
                             {(item.watchedCount ?? 0) > 0 && (
                               <small>
                                 {item.type === 'film' ? 'Watched' : `${item.watchedCount} ep${item.watchedCount === 1 ? '' : 's'} watched`}
@@ -2461,7 +2548,7 @@ function App() {
               </section>
             ))}
             {!watchGroups.length && <EmptyState title="My List is empty" detail="Track shows, films, or sports from the guide." />}
-          </div>
+          </div>}
 
           <div className="view-section">
             <div className="section-heading compact-heading">
@@ -2726,6 +2813,48 @@ function App() {
                 <span>Runway v{appVersion}{process.env.NEXT_PUBLIC_COMMIT ? ` · build ${process.env.NEXT_PUBLIC_COMMIT}` : ''}</span>
               </div>
               <ChevronRight size={18} />
+            </div>
+            <div className="settings-roadmap">
+              <p className="eyebrow">Taste profile</p>
+              <h2>Your anchors</h2>
+              {tasteAnchors.length > 0 ? (
+                <div className="taste-anchor-list">
+                  {tasteAnchors.map((a) => (
+                    <div key={a.title} className="taste-anchor-row">
+                      <span className="taste-anchor-glyph">
+                        {a.sentiment === 'loved' ? '😍' : '👍'}
+                      </span>
+                      <span className="taste-anchor-title">{a.title}</span>
+                    </div>
+                  ))}
+                  {(() => {
+                    const notForMeItems = watching.filter((w) => w.sentiment === 'not_for_me')
+                    if (!notForMeItems.length) return null
+                    return (
+                      <>
+                        <p className="taste-section-label">Not for me</p>
+                        {notForMeItems.map((w) => (
+                          <div key={w.id} className="taste-anchor-row taste-not-for-me">
+                            <span className="taste-anchor-glyph">😐</span>
+                            <span className="taste-anchor-title">{w.title}</span>
+                            <button
+                              type="button"
+                              className="taste-remove-btn"
+                              title="Remove suppression"
+                              onClick={() => void updateWatchingItem(w, { sentiment: null })}
+                            >×</button>
+                          </div>
+                        ))}
+                      </>
+                    )
+                  })()}
+                </div>
+              ) : (
+                <p className="taste-empty">
+                  Log shows you&apos;ve seen with a sentiment to build your profile.{' '}
+                  <Link href="/history" className="taste-wall-link">Build history →</Link>
+                </p>
+              )}
             </div>
             <div className="settings-roadmap">
               <p className="eyebrow">Taste profile</p>
@@ -3789,6 +3918,118 @@ function LeavingDateRow({
   )
 }
 
+const SENTIMENT_GLYPH: Record<string, string> = {
+  loved: '😍',
+  liked: '👍',
+  not_for_me: '😐',
+}
+
+function HistoryGrid({
+  items,
+  onReactivate,
+  onSentimentChange,
+}: {
+  items: WatchingItem[]
+  onReactivate: (item: WatchingItem) => void
+  onSentimentChange: (item: WatchingItem, s: Sentiment | null) => void
+}) {
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  const sorted = [...items].sort((a, b) => {
+    const sentOrder = (s: string | null | undefined) =>
+      s === 'loved' ? 0 : s === 'liked' ? 1 : s === 'not_for_me' ? 3 : 2
+    const diff = sentOrder(a.sentiment) - sentOrder(b.sentiment)
+    if (diff !== 0) return diff
+    return (a.title ?? '').localeCompare(b.title ?? '')
+  })
+
+  const years: number[] = items.flatMap((i) => {
+    const era = i.watchedEra
+    if (era?.includes('90')) return [1990]
+    if (era?.includes('00')) return [2000]
+    if (era?.includes('10')) return [2010]
+    if (era?.includes('20')) return [2020]
+    return []
+  })
+
+  const yearRange = years.length
+    ? ` · ${Math.min(...years)}s–${Math.max(...years)}s`
+    : ''
+
+  return (
+    <div className="history-grid-section">
+      <div className="history-grid-header">
+        <h2 className="history-grid-count">
+          {items.length} title{items.length !== 1 ? 's' : ''}{yearRange}
+        </h2>
+      </div>
+      {items.length === 0 ? (
+        <p className="history-grid-empty">
+          Mark shows as Seen via search or{' '}
+          <a href="/history" className="taste-wall-link">Build your history</a>.
+        </p>
+      ) : (
+        <div className="history-grid">
+          {sorted.map((item) => {
+            const glyph = item.sentiment ? SENTIMENT_GLYPH[item.sentiment] : null
+            const isExpanded = expandedId === item.id
+            return (
+              <div key={item.id} className="history-tile-wrap">
+                <button
+                  type="button"
+                  className="history-tile"
+                  title={item.title}
+                  onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                >
+                  <div className="history-tile-poster">
+                    {item.posterPath ? (
+                      <Image
+                        src={`https://image.tmdb.org/t/p/w92${item.posterPath}`}
+                        alt={item.title}
+                        width={60}
+                        height={90}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        unoptimized
+                      />
+                    ) : (
+                      <div className="history-tile-placeholder">{item.title.slice(0, 2)}</div>
+                    )}
+                    {glyph && (
+                      <span className="history-tile-glyph">{glyph}</span>
+                    )}
+                  </div>
+                  <span className="history-tile-title">{item.title}</span>
+                  {item.watchedEra && <span className="history-tile-era">{item.watchedEra}</span>}
+                </button>
+                {isExpanded && (
+                  <div className="history-tile-detail">
+                    <div className="sentiment-row" role="group">
+                      {(['loved', 'liked', 'not_for_me'] as Sentiment[]).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          aria-pressed={item.sentiment === s}
+                          className={item.sentiment === s ? `sentiment-chip sentiment-${s} active` : `sentiment-chip sentiment-${s}`}
+                          onClick={() => onSentimentChange(item, item.sentiment === s ? null : s)}
+                        >
+                          {SENTIMENT_GLYPH[s]} {s === 'not_for_me' ? 'Not for me' : s.charAt(0).toUpperCase() + s.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" className="pickup-btn" onClick={() => onReactivate(item)}>
+                      ▶ Rewatch
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function EmptyState({ title, detail }: { title: string; detail?: string }) {
   return (
     <div className="empty">
@@ -4111,7 +4352,7 @@ function SearchOverlay({
   onClose,
   onWatchlist,
   onTrack,
-  onSeen,
+  onArchive,
   onAddRecent,
   onOpenLibraryItem,
 }: {
@@ -4121,7 +4362,7 @@ function SearchOverlay({
   onClose: () => void
   onWatchlist: (item: TmdbItem) => void
   onTrack: (item: TmdbItem) => void
-  onSeen: (item: TmdbItem) => void
+  onArchive: (item: TmdbItem, sentiment?: Sentiment | null) => void
   onAddRecent: (q: string) => void
   onOpenLibraryItem: (id: string) => void
 }) {
@@ -4129,6 +4370,8 @@ function SearchOverlay({
   const [tmdbResults, setTmdbResults] = useState<TmdbItem[]>([])
   const [tmdbLoading, setTmdbLoading] = useState(false)
   const [highlightIdx, setHighlightIdx] = useState(0)
+  const [expandedSentimentId, setExpandedSentimentId] = useState<number | null>(null)
+  const [sessionCount, setSessionCount] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const libraryResults = useMemo(() => {
@@ -4160,8 +4403,26 @@ function SearchOverlay({
 
   const totalResults = libraryResults.length + tmdbResults.length
 
+  function doArchive(item: TmdbItem, sentiment?: Sentiment) {
+    onAddRecent(query.trim())
+    onArchive(item, sentiment ?? null)
+    setExpandedSentimentId(null)
+    setSessionCount((n) => n + 1)
+    // keep overlay open, re-focus input
+    setTimeout(() => inputRef.current?.focus(), 50)
+  }
+
+  function doTrack(item: TmdbItem) {
+    onAddRecent(query.trim())
+    onTrack(item)
+    setSessionCount((n) => n + 1)
+  }
+
   function handleKeyDown(e: ReactKeyboardEvent) {
-    if (e.key === 'Escape') { onClose(); return }
+    if (e.key === 'Escape') {
+      if (expandedSentimentId !== null) { setExpandedSentimentId(null); return }
+      onClose(); return
+    }
     if (e.key === 'ArrowDown') { e.preventDefault(); setHighlightIdx((i) => Math.min(i + 1, totalResults - 1)); return }
     if (e.key === 'ArrowUp') { e.preventDefault(); setHighlightIdx((i) => Math.max(i - 1, 0)); return }
     if (e.key === 'Enter') {
@@ -4169,15 +4430,21 @@ function SearchOverlay({
       if (libItem) { onOpenLibraryItem(libItem.id); return }
       const tmdbIdx = highlightIdx - libraryResults.length
       const tmdbItem = tmdbResults[tmdbIdx]
-      if (tmdbItem) { onAddRecent(query.trim()); onTrack(tmdbItem) }
+      if (tmdbItem) doTrack(tmdbItem)
       return
     }
     const tmdbIdx = highlightIdx - libraryResults.length
     const tmdbItem = tmdbResults[tmdbIdx]
     if (!tmdbItem) return
     if (e.key === 'w' || e.key === 'W') { onAddRecent(query.trim()); onWatchlist(tmdbItem) }
-    if (e.key === 't' || e.key === 'T') { onAddRecent(query.trim()); onTrack(tmdbItem) }
-    if (e.key === 's' || e.key === 'S') { onAddRecent(query.trim()); onSeen(tmdbItem) }
+    if (e.key === 't' || e.key === 'T') doTrack(tmdbItem)
+    if (e.key === 's' || e.key === 'S') {
+      if (expandedSentimentId === tmdbItem.id) { doArchive(tmdbItem); return }
+      setExpandedSentimentId(tmdbItem.id)
+    }
+    if (e.key === '1') doArchive(tmdbItem, 'loved')
+    if (e.key === '2') doArchive(tmdbItem, 'liked')
+    if (e.key === '3') doArchive(tmdbItem, 'not_for_me')
   }
 
   const showEmpty = !query.trim()
@@ -4195,10 +4462,10 @@ function SearchOverlay({
             onChange={(e) => { setQuery(e.target.value); setHighlightIdx(0) }}
             placeholder="Search shows & films…"
             autoComplete="off"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && query.trim()) onAddRecent(query.trim())
-            }}
           />
+          {sessionCount > 0 && (
+            <span className="search-session-count">{sessionCount} added</span>
+          )}
           <button type="button" className="search-esc-btn" onClick={onClose}><kbd>Esc</kbd></button>
         </div>
 
@@ -4267,7 +4534,7 @@ function SearchOverlay({
           {/* TMDb results */}
           {(!showEmpty && (tmdbResults.length > 0 || tmdbLoading)) && (
             <div className="search-group">
-              <p className="search-section-label">Add something new</p>
+              <p className="search-section-label">Add to your history</p>
               {tmdbLoading && <div className="search-skeleton-row" />}
               {tmdbResults.map((item, i) => {
                 const idx = libraryResults.length + i
@@ -4275,12 +4542,9 @@ function SearchOverlay({
                 const isTracked = trackedTitleSet.has(normalizeTitle(item.title ?? item.name ?? ''))
                 const year = item.release_date?.slice(0, 4) ?? item.first_air_date?.slice(0, 4)
                 const typeLabel = item.media_type === 'tv' ? 'TV series' : 'Film'
+                const showingSentiment = expandedSentimentId === item.id
                 return (
-                  <div
-                    key={item.id}
-                    className={`search-result-row ${isHighlighted ? 'highlighted' : ''}`}
-                    onMouseEnter={() => setHighlightIdx(idx)}
-                  >
+                  <div key={item.id} className={`search-result-row ${isHighlighted ? 'highlighted' : ''}`} onMouseEnter={() => setHighlightIdx(idx)}>
                     {item.poster_path ? (
                       <Image
                         src={`https://image.tmdb.org/t/p/w92${item.poster_path}`}
@@ -4300,32 +4564,26 @@ function SearchOverlay({
                         {isTracked && <span className="rel-badge rel-badge-tracking">In library</span>}
                       </span>
                     </div>
-                    <div className="search-result-actions">
-                      <button
-                        type="button"
-                        className="search-action-btn"
-                        title="Add to watchlist (W)"
-                        onClick={() => { onAddRecent(query.trim()); onWatchlist(item) }}
-                      >
-                        + Watchlist
-                      </button>
-                      <button
-                        type="button"
-                        className="search-action-btn"
-                        title="Track (T)"
-                        onClick={() => { onAddRecent(query.trim()); onTrack(item) }}
-                      >
-                        ▶ Track
-                      </button>
-                      <button
-                        type="button"
-                        className="search-action-btn search-action-seen"
-                        title="Seen it (S)"
-                        onClick={() => { onAddRecent(query.trim()); onSeen(item) }}
-                      >
-                        ✓ Seen it
-                      </button>
-                    </div>
+                    {showingSentiment ? (
+                      <div className="search-sentiment-row">
+                        <button type="button" className="search-sentiment-btn search-sentiment-loved" onClick={() => doArchive(item, 'loved')} title="Loved (1)">😍 Loved</button>
+                        <button type="button" className="search-sentiment-btn search-sentiment-liked" onClick={() => doArchive(item, 'liked')} title="Liked (2)">👍 Liked</button>
+                        <button type="button" className="search-sentiment-btn" onClick={() => doArchive(item, 'not_for_me')} title="Not for me (3)">😐 Not for me</button>
+                        <button type="button" className="search-sentiment-skip" onClick={() => doArchive(item)} title="Skip sentiment">→</button>
+                      </div>
+                    ) : (
+                      <div className="search-result-actions">
+                        <button type="button" className="search-action-btn search-action-primary" title="Watching (T)" onClick={() => doTrack(item)}>
+                          ▶ Watching
+                        </button>
+                        <button type="button" className="search-action-btn search-action-seen" title="Seen it (S)" onClick={() => setExpandedSentimentId(item.id)}>
+                          ✓ Seen it
+                        </button>
+                        <button type="button" className="search-action-btn" title="Watchlist (W)" onClick={() => { onAddRecent(query.trim()); onWatchlist(item) }}>
+                          + Watchlist
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )
               })}

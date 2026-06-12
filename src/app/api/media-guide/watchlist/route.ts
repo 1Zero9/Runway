@@ -24,6 +24,11 @@ type WatchlistRow = {
   relationship: string | null
   favourited_at: string | null
   recommended_at: string | null
+  log_mode: string | null
+  archive_completed_at: string | null
+  sentiment: string | null
+  sentiment_at: string | null
+  watched_era: string | null
 }
 
 type WatchlistPayload = {
@@ -47,6 +52,11 @@ type WatchlistPayload = {
   relationship?: string | null
   favouritedAt?: string | null
   recommendedAt?: string | null
+  logMode?: 'active' | 'archive' | null
+  archiveCompletedAt?: string | null
+  sentiment?: 'loved' | 'liked' | 'not_for_me' | null
+  sentimentAt?: string | null
+  watchedEra?: string | null
 }
 
 export async function GET() {
@@ -55,7 +65,7 @@ export async function GET() {
 
   const sql = await getSql()
   const rows = await sql`
-    select id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at
+    select id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at, log_mode, archive_completed_at, sentiment, sentiment_at, watched_era
     from media_watchlist
     order by done asc, next_episode asc nulls last, created_at desc
   `
@@ -76,7 +86,7 @@ export async function POST(request: Request) {
   const userRating = normalizeRating(payload.userRating)
   const rows = await sql`
     insert into media_watchlist (
-      id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at
+      id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at, log_mode, archive_completed_at, sentiment, sentiment_at, watched_era
     )
     values (
       ${payload.id ?? crypto.randomUUID()},
@@ -98,9 +108,14 @@ export async function POST(request: Request) {
       ${payload.leavingDate ?? null},
       ${payload.relationship ?? null},
       ${payload.favouritedAt ?? null},
-      ${payload.recommendedAt ?? null}
+      ${payload.recommendedAt ?? null},
+      ${payload.logMode ?? 'active'},
+      ${payload.archiveCompletedAt ?? null},
+      ${payload.sentiment ?? null},
+      ${payload.sentimentAt ?? null},
+      ${payload.watchedEra ?? null}
     )
-    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at
+    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at, log_mode, archive_completed_at, sentiment, sentiment_at, watched_era
   `
 
   return NextResponse.json(mapRow(rows[0] as WatchlistRow), { status: 201 })
@@ -136,6 +151,9 @@ export async function PATCH(request: Request) {
   }
 
   const hasPosterPath = 'posterPath' in (payload as Record<string, unknown>)
+  const hasSentiment = 'sentiment' in (payload as Record<string, unknown>)
+  const hasLogMode = 'logMode' in (payload as Record<string, unknown>)
+  const hasWatchedEra = 'watchedEra' in (payload as Record<string, unknown>)
   const rows = await sql`
     update media_watchlist
     set done = coalesce(${derivedDone}, done),
@@ -150,9 +168,14 @@ export async function PATCH(request: Request) {
         relationship = case when ${hasRelationship}::boolean then ${payload.relationship ?? null} else relationship end,
         relationship_changed_at = case when ${hasRelationship}::boolean then now() else relationship_changed_at end,
         favourited_at = case when ${hasFavouritedAt}::boolean then ${payload.favouritedAt ?? null}::timestamptz else favourited_at end,
-        recommended_at = case when ${hasRecommendedAt}::boolean then ${payload.recommendedAt ?? null}::timestamptz else recommended_at end
+        recommended_at = case when ${hasRecommendedAt}::boolean then ${payload.recommendedAt ?? null}::timestamptz else recommended_at end,
+        sentiment = case when ${hasSentiment}::boolean then ${payload.sentiment ?? null} else sentiment end,
+        sentiment_at = case when ${hasSentiment}::boolean and ${payload.sentiment ?? null} is not null then now() else sentiment_at end,
+        log_mode = case when ${hasLogMode}::boolean then ${payload.logMode ?? 'active'} else log_mode end,
+        archive_completed_at = case when ${hasLogMode}::boolean and ${payload.logMode ?? null} = 'archive' then coalesce(archive_completed_at, now()) else archive_completed_at end,
+        watched_era = case when ${hasWatchedEra}::boolean then ${payload.watchedEra ?? null} else watched_era end
     where id = ${payload.id}
-    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at
+    returning id, title, service, next_episode, cadence, notes, type, user_rating, last_watched_at, watched_count, done, status, current_season, current_episode, tmdb_id, poster_path, leaving_date, relationship, favourited_at, recommended_at, log_mode, archive_completed_at, sentiment, sentiment_at, watched_era
   `
 
   if ('leavingDate' in (payload as Record<string, unknown>)) {
@@ -225,6 +248,11 @@ async function ensureTable(sql: NeonQueryFunction<false, false>) {
   await sql`alter table media_watchlist add column if not exists relationship_changed_at timestamptz`
   await sql`alter table media_watchlist add column if not exists favourited_at timestamptz`
   await sql`alter table media_watchlist add column if not exists recommended_at timestamptz`
+  await sql`alter table media_watchlist add column if not exists log_mode text default 'active'`
+  await sql`alter table media_watchlist add column if not exists archive_completed_at timestamptz`
+  await sql`alter table media_watchlist add column if not exists sentiment text`
+  await sql`alter table media_watchlist add column if not exists sentiment_at timestamptz`
+  await sql`alter table media_watchlist add column if not exists watched_era text`
 }
 
 function mapRow(row: WatchlistRow) {
@@ -249,6 +277,11 @@ function mapRow(row: WatchlistRow) {
     relationship: row.relationship ?? null,
     favouritedAt: row.favourited_at ?? null,
     recommendedAt: row.recommended_at ?? null,
+    logMode: (row.log_mode ?? 'active') as 'active' | 'archive',
+    archiveCompletedAt: row.archive_completed_at ?? null,
+    sentiment: (row.sentiment ?? null) as 'loved' | 'liked' | 'not_for_me' | null,
+    sentimentAt: row.sentiment_at ?? null,
+    watchedEra: row.watched_era ?? null,
   }
 }
 
