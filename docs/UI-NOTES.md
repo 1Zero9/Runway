@@ -4,6 +4,44 @@ Read this at the start of every session before touching any CSS or component cod
 
 ---
 
+## RESET Phase 4 — Three modules made stylish (2026-06-12)
+
+**Status: implementation complete. Awaiting Steve's screenshot sign-off + prod-bar verdict before Phase 5.**
+
+### What changed
+
+**Shortlist card — signature treatment:**
+- Width: 220px base / 260px at 640px / 300px at 1024px (was 200/240/280)
+- `border: 1px solid` removed → `box-shadow: inset 0 0 0 1px var(--line)` — poster now fills card top with zero gap at the rounded corners
+- Primary action button: `opacity: 0` by default, fades in on hover/focus-within; always visible on touch (`pointer: coarse`). Means ≤1 red action visible at a time on desktop.
+- Service label: 11px → 12px (`var(--fs-sm)`) per STYLE-RULES metadata standard
+
+**Continue watching card — horizontal density:**
+- Layout changed from vertical (poster top, text below) to horizontal (68px poster left, body right)
+- Progress hairline moved from inside the poster div to span the full card width at the absolute bottom
+- Added `.continue-card-body` wrapper (flex-column, space-between) for info stack above mark button
+- Card title: 12px → 14px (`var(--fs-md)`) — more readable in the narrower right column
+- Episode label: 11px → 12px, letter-spacing 0.06em → 0.05em (standard metadata style)
+- Runtime display: shows `${avg} min` when `showDetail.episodeRunTime` is populated (absent when not cached)
+- Card width: 220px base / 240px at 640px / 260px at 1024px
+
+**Type discipline:**
+- Section header `font-size: 22px` hardcoded → `var(--fs-2xl)` (uses clamp token properly)
+- Section header `--line-strong` hairline → `--line` (lighter, less competing with content)
+- Section header `margin-bottom` 16px → 20px for consistent vertical rhythm
+- Missing `--space-10: 64px` added to token sheet (was undefined but used in desktop responsive rules)
+
+**Dead CSS removed:**
+- `.continue-strip`, `.continue-card` (old pre-dashboard definition), `.continue-title`, `.continue-meta`, `.continue-date` — all unused since the ContinueRail component replaced the old strip
+
+**Acceptance evidence required (Steve):**
+- [ ] Screenshot at 1280px: Shortlist shows real posters, no visible border gap at card top; action button absent at rest, visible on hover
+- [ ] Screenshot at 375px: Shortlist cards scroll-snap; Continue cards horizontal layout readable; action always visible
+- [ ] Prod-bar verdict: would you show this dashboard to a stranger without explaining anything?
+- [ ] If yes → Phase 5 can begin (re-admit Coming up module)
+
+---
+
 ## Consolidated brief (RUNWAY-BRIEF.md)
 
 RUNWAY-BRIEF.md supersedes all prior UI work. Light mode only, red accent `#C2362B`, Fraunces + Inter typography. The dark/amber theme is gone. Nine phases defined. See RUNWAY-BRIEF.md for the full spec.

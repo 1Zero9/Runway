@@ -2830,6 +2830,10 @@ function ContinueRail({
           item.type !== 'film' && item.type !== 'sport'
             ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
             : null
+        const avgRuntime = showDetail?.episodeRunTime?.length
+          ? Math.round(showDetail.episodeRunTime.reduce((a, b) => a + b, 0) / showDetail.episodeRunTime.length)
+          : null
+        const runtime = avgRuntime ? `${avgRuntime} min` : null
         return (
           <div key={item.id} className={isCaughtUp ? 'continue-card caught-up' : 'continue-card'}>
             <div className="continue-card-poster">
@@ -2848,24 +2852,27 @@ function ContinueRail({
                   <span className="poster-fallback-initial">{(item.title[0] ?? '?').toUpperCase()}</span>
                 </div>
               )}
-              <div className="continue-card-progress-track">
-                <div className="continue-card-progress-fill" style={{ width: isCaughtUp ? '100%' : `${Math.max(2, progress)}%` }} />
+            </div>
+            <div className="continue-card-body">
+              <div className="continue-card-info">
+                {isCaughtUp ? (
+                  <span className="continue-card-ep caught-up-label">Caught up ✓</span>
+                ) : (
+                  epLabel && <span key={epLabel} className="continue-card-ep">{epLabel}</span>
+                )}
+                <span className="continue-card-title">{item.title}</span>
+                {runtime && <span className="continue-card-runtime">{runtime}</span>}
               </div>
-            </div>
-            <div className="continue-card-info">
-              {isCaughtUp ? (
-                <span className="continue-card-ep caught-up-label">Caught up ✓</span>
-              ) : (
-                epLabel && <span key={epLabel} className="continue-card-ep">{epLabel}</span>
+              {!isCaughtUp && (
+                <button type="button" className="continue-card-mark" onClick={() => onMarkWatched(item, showDetail)}>
+                  <Check size={11} />
+                  {item.type === 'film' ? 'Watched' : 'Ep watched'}
+                </button>
               )}
-              <span className="continue-card-title">{item.title}</span>
             </div>
-            {!isCaughtUp && (
-              <button type="button" className="continue-card-mark" onClick={() => onMarkWatched(item, showDetail)}>
-                <Check size={11} />
-                {item.type === 'film' ? 'Watched' : 'Ep watched'}
-              </button>
-            )}
+            <div className="continue-card-progress-track">
+              <div className="continue-card-progress-fill" style={{ width: isCaughtUp ? '100%' : `${Math.max(2, progress)}%` }} />
+            </div>
           </div>
         )
       })}
