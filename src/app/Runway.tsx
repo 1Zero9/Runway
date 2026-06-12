@@ -30,7 +30,7 @@ import { flushSync } from 'react-dom'
 import type { CSSProperties, FormEvent, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react'
 import { formatEpisodeLabel } from '@/lib/episode-label'
 import { buildShortlist } from '@/lib/shortlist'
-import type { WatchlistItem } from '@/lib/shortlist'
+import type { WatchlistItem, ShortlistRule } from '@/lib/shortlist'
 import {
   watchlistAdd,
   watchlistUpdate,
@@ -58,7 +58,7 @@ import './runway.css'
 
 type Tab = 'tonight' | 'runway' | 'library' | 'settings' | 'guide'
 type TimeFit = 'any' | '30min' | '1hour' | 'film'
-type ShortlistEntry = { item: WatchingItem; reason: string; action: string }
+type ShortlistEntry = { item: WatchingItem; rule: ShortlistRule; reason: string; action: string }
 type ListingTimeMode = 'from_now' | 'full_day'
 type DiscoveryMediaType = 'all' | 'movie' | 'tv'
 type DiscoveryStatusFilter = 'all' | 'unselected' | RecommendationItem['status']
@@ -148,6 +148,7 @@ type TmdbShowDetail = {
   episodeRunTime: number[]
   seasons: { seasonNumber: number; episodeCount: number }[]
   backdropPath?: string | null
+  voteAverage?: number
 }
 
 type RecommendationList = {
@@ -273,6 +274,7 @@ function App() {
   const [watchlistSource, setWatchlistSource] = useState<'syncing' | 'neon' | 'local'>('syncing')
   const [streaming, setStreaming] = useState<TmdbItem[]>(fallbackStreaming)
   const [cinema, setCinema] = useState<TmdbItem[]>([])
+  const [trending, setTrending] = useState<TmdbItem[]>([])
   const [tmdbLoading, setTmdbLoading] = useState(false)
   const [tmdbError, setTmdbError] = useState('')
   const [tmdbRefreshedAt, setTmdbRefreshedAt] = useState('')
@@ -506,8 +508,39 @@ function App() {
     )
     const userProviders = providers.filter((p) => p.enabled).flatMap((p) => p.match)
     return buildShortlist(watching as WatchlistItem[], { today, tvTonightTitles, episodeCounts, userProviders }, timeFit)
-      .map((e) => ({ item: e.item as WatchingItem, reason: e.reason, action: e.action }))
+      .map((e) => ({ item: e.item as WatchingItem, rule: e.rule, reason: e.reason, action: e.action }))
   }, [watching, timeFit, now, tvTonightTracked, showDetailCache, providers])
+
+  const libraryTmdbIds = useMemo(
+    () => new Set(watching.map((w) => w.tmdbId).filter((id): id is number => id != null)),
+    [watching],
+  )
+
+  const thirtyDaysAgo = useMemo(() => {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 30)
+    return d.toISOString().slice(0, 10)
+  }, [now])
+
+  const newForYou = useMemo(() => {
+    if (!streaming.length) return []
+    return streaming
+      .filter((item) => {
+        const date = item.first_air_date ?? item.release_date ?? ''
+        return date >= thirtyDaysAgo && !libraryTmdbIds.has(item.id)
+      })
+      .sort((a, b) => {
+        const da = a.first_air_date ?? a.release_date ?? ''
+        const db = b.first_air_date ?? b.release_date ?? ''
+        return db > da ? 1 : -1
+      })
+      .slice(0, 12)
+  }, [streaming, thirtyDaysAgo, libraryTmdbIds])
+
+  const trendingForYou = useMemo(
+    () => trending.filter((item) => !libraryTmdbIds.has(item.id)).slice(0, 12),
+    [trending, libraryTmdbIds],
+  )
 
   const topItemTmdbId = useMemo(() => {
     const shortlistTop = shortlistItems[0]?.item
@@ -741,6 +774,17 @@ function App() {
       ignore = true
     }
   }, [providers, setProviders, tmdbRefreshNonce])
+
+  useEffect(() => {
+    let ignore = false
+    fetch('/api/media-guide/discovery')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { trending: TmdbItem[] } | null) => {
+        if (!ignore && data?.trending?.length) setTrending(data.trending)
+      })
+      .catch(() => {})
+    return () => { ignore = true }
+  }, [])
 
   function showToast(message: string, undo?: () => void) {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
@@ -1625,9 +1669,9 @@ function App() {
 
       {tab === 'tonight' && (
         <section className="view dashboard">
-          <div className={heroBackdropPath ? 'dashboard-hero-wrap has-backdrop' : 'dashboard-hero-wrap'}>
+          <div className="dashboard-hero-wrap">
 
-            {heroBackdropPath && (
+            {false && heroBackdropPath && (
               <div className="dashboard-hero-bg" aria-hidden>
                 <Image
                   key={heroBackdropPath}
@@ -1708,6 +1752,21 @@ function App() {
                 caughtUpIds={caughtUpIds}
                 onMarkWatched={markWatched}
               />
+            </div>
+          )}
+
+          {/* Discovery rails — New for you + Trending */}
+          {newForYou.length > 0 && (
+            <div className="dashboard-section">
+              <h2 className="dashboard-section-header">New for you</h2>
+              <DiscoveryRail items={newForYou} />
+            </div>
+          )}
+
+          {trendingForYou.length > 0 && (
+            <div className="dashboard-section">
+              <h2 className="dashboard-section-header">Trending this week</h2>
+              <DiscoveryRail items={trendingForYou} />
             </div>
           )}
 
@@ -2754,6 +2813,25 @@ function App() {
   )
 }
 
+function scoreChipClass(avg: number): string {
+  if (avg >= 7.5) return 'chip chip-score chip-score-hi'
+  if (avg >= 5.0) return 'chip chip-score chip-score-mid'
+  return 'chip chip-score chip-score-lo'
+}
+
+function ScoreChip({ avg }: { avg: number | undefined }) {
+  if (!avg || avg < 0.5) return null
+  const pct = Math.round(avg * 10)
+  return <span className={scoreChipClass(avg)}>● {pct}%</span>
+}
+
+function ruleReasonClass(rule: ShortlistRule): string {
+  if (rule === 'LEAVING_SOON') return 'reason-leaving'
+  if (rule === 'FINISH_LINE' || rule === 'NEW_SEASON') return 'reason-new'
+  if (rule === 'ON_TV_TONIGHT') return 'reason-soon'
+  return ''
+}
+
 function ShortlistCard({
   entry,
   cardIndex,
@@ -2765,13 +2843,13 @@ function ShortlistCard({
   showDetail: TmdbShowDetail | undefined
   onMarkWatched: () => void
 }) {
-  const { item, reason, action } = entry
+  const { item, reason, action, rule } = entry
   const progress = showDetail && item.type !== 'film' && item.type !== 'sport'
     ? computeWatchProgress(item, showDetail)
     : 0
   return (
-    <article className="shortlist-card" style={{ '--card-index': cardIndex } as CSSProperties}>
-      <div className="shortlist-card-poster">
+    <article className="tile shortlist-tile" style={{ '--card-index': cardIndex } as CSSProperties}>
+      <div className="tile-poster">
         {item.posterPath ? (
           <Image
             src={`https://image.tmdb.org/t/p/w342${item.posterPath}`}
@@ -2783,25 +2861,29 @@ function ShortlistCard({
             blurDataURL={makePosterBlur(null)}
           />
         ) : (
-          <div className="poster-fallback" style={{ width: '100%', height: '100%', background: 'var(--surface-sunken)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '8px', padding: '12px' }}>
+          <div className="tile-poster-fallback">
             <span className="poster-fallback-initial">{(item.title[0] ?? '?').toUpperCase()}</span>
-            <span className="poster-fallback-title">{item.title}</span>
           </div>
         )}
         {progress > 0 && (
-          <div className="shortlist-progress-track">
-            <div className="shortlist-progress-fill" style={{ width: `${progress}%` }} />
+          <div className="tile-progress-track">
+            <div className="tile-progress-fill" style={{ width: `${progress}%` }} />
           </div>
         )}
-      </div>
-      <div className="shortlist-card-info">
-        <span className="shortlist-card-service">{item.service}</span>
-        <h3 className="shortlist-card-title">{item.title}</h3>
-        <p className="shortlist-card-reason">{reason}</p>
-        <button type="button" className="shortlist-card-action" onClick={onMarkWatched}>
-          <Check size={13} />
+        <button type="button" className="tile-action" onClick={onMarkWatched}>
+          <Check size={11} />
           {action}
         </button>
+      </div>
+      <div className="tile-body">
+        <div className="tile-title">{item.title}</div>
+        <div className="tile-meta">
+          <div className="tile-meta-row">
+            {item.service && <span className="tile-provider">{item.service}</span>}
+            <ScoreChip avg={showDetail?.voteAverage} />
+          </div>
+          <span className={`tile-reason ${ruleReasonClass(rule)}`}>{reason}</span>
+        </div>
       </div>
     </article>
   )
@@ -2835,8 +2917,8 @@ function ContinueRail({
           : null
         const runtime = avgRuntime ? `${avgRuntime} min` : null
         return (
-          <div key={item.id} className={isCaughtUp ? 'continue-card caught-up' : 'continue-card'}>
-            <div className="continue-card-poster">
+          <div key={item.id} className={isCaughtUp ? 'tile continue-tile caught-up' : 'tile continue-tile'}>
+            <div className="tile-poster">
               {item.posterPath ? (
                 <Image
                   src={`https://image.tmdb.org/t/p/w185${item.posterPath}`}
@@ -2848,30 +2930,72 @@ function ContinueRail({
                   blurDataURL={makePosterBlur(null)}
                 />
               ) : (
-                <div className="poster-fallback" style={{ width: '100%', height: '100%', background: 'var(--surface-sunken)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div className="tile-poster-fallback">
                   <span className="poster-fallback-initial">{(item.title[0] ?? '?').toUpperCase()}</span>
                 </div>
               )}
-            </div>
-            <div className="continue-card-body">
-              <div className="continue-card-info">
-                {isCaughtUp ? (
-                  <span className="continue-card-ep caught-up-label">Caught up ✓</span>
-                ) : (
-                  epLabel && <span key={epLabel} className="continue-card-ep">{epLabel}</span>
-                )}
-                <span className="continue-card-title">{item.title}</span>
-                {runtime && <span className="continue-card-runtime">{runtime}</span>}
+              <div className="tile-progress-track">
+                <div className="tile-progress-fill" style={{ width: isCaughtUp ? '100%' : `${Math.max(2, progress)}%` }} />
               </div>
               {!isCaughtUp && (
-                <button type="button" className="continue-card-mark" onClick={() => onMarkWatched(item, showDetail)}>
+                <button type="button" className="tile-action" onClick={() => onMarkWatched(item, showDetail)}>
                   <Check size={11} />
                   {item.type === 'film' ? 'Watched' : 'Ep watched'}
                 </button>
               )}
             </div>
-            <div className="continue-card-progress-track">
-              <div className="continue-card-progress-fill" style={{ width: isCaughtUp ? '100%' : `${Math.max(2, progress)}%` }} />
+            <div className="tile-body">
+              <div className="tile-title">{item.title}</div>
+              <div className="tile-meta">
+                <div className="tile-meta-row">
+                  <ScoreChip avg={showDetail?.voteAverage} />
+                </div>
+                {isCaughtUp ? (
+                  <span className="tile-context is-new">Caught up ✓</span>
+                ) : (
+                  epLabel && <span className="tile-context">{epLabel}</span>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function DiscoveryRail({ items }: { items: TmdbItem[] }) {
+  return (
+    <div className="discovery-rail">
+      {items.map((item) => {
+        const title = item.title ?? item.name ?? ''
+        return (
+          <div key={`${item.media_type}-${item.id}`} className="tile discovery-tile">
+            <div className="tile-poster">
+              {item.poster_path ? (
+                <Image
+                  src={`https://image.tmdb.org/t/p/w342${item.poster_path}`}
+                  alt=""
+                  width={342}
+                  height={513}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+              ) : (
+                <div className="tile-poster-fallback">
+                  <span className="poster-fallback-initial">{(title[0] ?? '?').toUpperCase()}</span>
+                </div>
+              )}
+            </div>
+            <div className="tile-body">
+              <div className="tile-title">{title}</div>
+              <div className="tile-meta">
+                <div className="tile-meta-row">
+                  {item.media_type && (
+                    <span className="tile-provider">{item.media_type === 'movie' ? 'Film' : 'TV'}</span>
+                  )}
+                  <ScoreChip avg={item.vote_average} />
+                </div>
+              </div>
             </div>
           </div>
         )

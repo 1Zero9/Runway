@@ -7,6 +7,7 @@ type TmdbTvResponse = {
   number_of_episodes: number
   episode_run_time: number[]
   backdrop_path: string | null
+  vote_average: number
   seasons: { id: number; season_number: number; episode_count: number }[]
 }
 
@@ -38,6 +39,7 @@ export async function GET(request: Request) {
     numberOfEpisodes: data.number_of_episodes,
     episodeRunTime: data.episode_run_time ?? [],
     backdropPath: data.backdrop_path ?? null,
+    voteAverage: data.vote_average ?? 0,
     seasons: (data.seasons ?? [])
       .filter((s) => s.season_number > 0)
       .map((s) => ({ seasonNumber: s.season_number, episodeCount: s.episode_count })),

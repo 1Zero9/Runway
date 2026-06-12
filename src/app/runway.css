@@ -1,23 +1,33 @@
 /* ── Token sheet ─────────────────────────────────────────────────────────── */
 
 :root {
-  /* Palette — cool gallery light */
-  --bg: #F6F7F9;
+  /* Palette — pure white base */
+  --bg: #FFFFFF;
   --surface: #FFFFFF;
-  --surface-sunken: #EEF0F3;
-  --line: #E2E5EA;
+  --surface-sunken: #F2F4F7;
+  --well: #F2F4F7;
+  --line: #E6E9EE;
   --line-strong: #C9CED6;
-  --ink: #16181D;
-  --ink-soft: #5A6170;
-  --ink-faint: #9AA1AD;
-  --accent: #C2362B;
-  --accent-rgb: 194, 54, 43;
+  --ink: #101319;
+  --ink-soft: #525A66;
+  --ink-faint: #98A0AB;
+
+  /* Functional colour system — every colour means one thing */
+  --brand: #E0342B;
+  --accent: #E0342B;
+  --accent-rgb: 224, 52, 43;
   --accent-soft: #FBEAE8;
-  --positive: #1E7A4D;
+  --new: #0B8A47;
+  --soon: #E8830C;
+  --leaving: #C2362B;
+  --list: #1D5FD6;
+  --score-hi: #0B8A47;
+  --score-mid: #E8830C;
+  --score-lo: #98A0AB;
 
   /* Shadows — layered ambient (light mode) */
-  --shadow-sm: 0 1px 2px rgb(22 24 29 / 0.04), 0 4px 12px rgb(22 24 29 / 0.06);
-  --shadow-md: 0 2px 4px rgb(22 24 29 / 0.06), 0 8px 24px rgb(22 24 29 / 0.10);
+  --shadow-sm: 0 1px 2px rgb(16 19 25 / 0.04), 0 4px 12px rgb(16 19 25 / 0.06);
+  --shadow-md: 0 2px 4px rgb(16 19 25 / 0.06), 0 8px 24px rgb(16 19 25 / 0.10);
 
   /* Radii */
   --radius-sm: 8px;
@@ -25,18 +35,18 @@
   --radius-poster: 10px;
 
   /* Fonts */
-  --font-display: var(--font-display, "Fraunces", "Source Serif 4", Georgia, serif);
+  --font-display: var(--font-display, "Space Grotesk", ui-sans-serif, system-ui, sans-serif);
   --font-ui: var(--font-ui, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
 
-  /* Type scale (8 steps: 12/13/14/16/18/22/28/36) */
+  /* Type scale (8 steps: 11/12/13/14/16/18/28/48) */
   --fs-xs: 11px;
   --fs-sm: 12px;
   --fs-base: 13px;
   --fs-md: 14px;
   --fs-lg: 16px;
   --fs-xl: 18px;
-  --fs-2xl: clamp(20px, 2.5vw, 22px);
-  --fs-3xl: clamp(28px, 4vw, 36px);
+  --fs-2xl: clamp(22px, 2.5vw, 28px);
+  --fs-3xl: clamp(36px, 4.5vw, 48px);
 
   /* Spacing scale (4px base) */
   --space-1: 4px;
@@ -245,7 +255,7 @@ h1 {
   font-size: var(--fs-3xl);
   font-weight: 700;
   line-height: 1.04;
-  letter-spacing: 0;
+  letter-spacing: -0.02em;
   white-space: nowrap;
 }
 
@@ -345,10 +355,10 @@ button:disabled {
 }
 
 .topbar-wordmark {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: var(--font-display);
   font-size: var(--fs-xl);
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   white-space: nowrap;
   color: var(--ink);
 }
@@ -1113,14 +1123,14 @@ button:disabled {
   margin-bottom: var(--radius-md);
 }
 
-/* ── Section header — Fraunces + hairline rule ──────────────────────────── */
+/* ── Section header — Space Grotesk + hairline rule ─────────────────────── */
 
 .settings-panel > h2,
 .settings-roadmap > h2 {
   font-family: var(--font-display);
   font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1.15;
   color: var(--ink);
   padding-bottom: var(--space-2);
@@ -1150,7 +1160,8 @@ button:disabled {
 .channel-panel-heading h2 {
   font-family: var(--font-display);
   font-size: var(--fs-xl);
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   line-height: 1.15;
   color: var(--ink);
 }
@@ -2752,22 +2763,22 @@ button:disabled {
 }
 
 .dashboard-greeting {
-  padding: var(--space-8) var(--space-5) var(--space-4);
+  padding: var(--space-6) var(--space-5) var(--space-2);
 }
 
 .greeting-date {
   font-family: var(--font-display);
   font-size: var(--fs-3xl);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
-  line-height: 1.1;
-  letter-spacing: -0.01em;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
 }
 
 .time-fit-bar {
   display: flex;
   gap: var(--space-2);
-  padding: 0 var(--space-5) var(--space-5);
+  padding: 0 var(--space-5) var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -2775,7 +2786,7 @@ button:disabled {
   padding: 6px 14px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--line);
-  background: var(--surface-sunken);
+  background: var(--well);
   color: var(--ink-soft);
   font-size: var(--fs-sm);
   font-weight: 500;
@@ -2798,15 +2809,16 @@ button:disabled {
 }
 
 .dashboard-section {
-  padding: 0 var(--space-5) var(--space-8);
+  padding: 0 var(--space-5) 40px;
 }
 
 .dashboard-section-header {
   font-family: var(--font-display);
   font-size: var(--fs-2xl);
-  font-weight: 550;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--ink);
-  line-height: 1.2;
+  line-height: 1.15;
   padding-bottom: var(--space-3);
   margin-bottom: var(--space-5);
   border-bottom: 1px solid var(--line);
@@ -2818,7 +2830,168 @@ button:disabled {
   padding: var(--space-4) 0;
 }
 
-/* Shortlist */
+/* ── Tile — shared naked-poster component (Phase B) ─────────────────────── */
+
+.tile {
+  flex: 0 0 164px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .shortlist-tile {
+    animation: tile-rise 260ms ease both;
+    animation-delay: calc(var(--card-index, 0) * 25ms);
+  }
+}
+
+@keyframes tile-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.tile-poster {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.tile:hover .tile-poster {
+  transform: scale(1.03);
+  box-shadow: var(--shadow-md);
+}
+
+.tile-poster-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Progress bar — branded brand red at absolute bottom of poster */
+.tile-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(16, 19, 25, 0.12);
+}
+
+.tile-progress-fill {
+  height: 100%;
+  background: var(--brand);
+  min-width: 2px;
+  transition: width 300ms ease;
+}
+
+/* Action button — overlaid on poster, appears on hover */
+.tile-action {
+  position: absolute;
+  bottom: var(--space-2);
+  left: var(--space-2);
+  right: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  border: none;
+  background: rgba(16, 19, 25, 0.74);
+  color: #FFFFFF;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(3px);
+  transition: opacity 150ms ease, transform 150ms ease;
+  backdrop-filter: blur(4px);
+}
+
+.tile:hover .tile-action,
+.tile:focus-within .tile-action {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tile-action:hover { background: rgba(16, 19, 25, 0.84); }
+.tile-action:active { transform: scale(0.97); }
+
+@media (pointer: coarse) {
+  .tile-action {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Tile body — title + meta below the poster */
+.tile-body {
+  padding-top: var(--space-2);
+}
+
+.tile-title {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tile-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 3px;
+}
+
+.tile-meta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.tile-provider {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.tile-reason,
+.tile-context {
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tile-reason.reason-leaving { color: var(--leaving); font-weight: 600; }
+.tile-reason.reason-new     { color: var(--new);     font-weight: 600; }
+.tile-reason.reason-soon    { color: var(--soon);    font-weight: 600; }
+.tile-context.is-new        { color: var(--new);     font-weight: 600; }
+
+/* Shortlist rail */
 
 .shortlist-rail {
   display: flex;
@@ -2832,132 +3005,11 @@ button:disabled {
 
 .shortlist-rail::-webkit-scrollbar { display: none; }
 
-.shortlist-card {
-  flex: 0 0 220px;
-  scroll-snap-align: start;
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  box-shadow: inset 0 0 0 1px var(--line), var(--shadow-sm);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: box-shadow 150ms ease, transform 150ms ease;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .shortlist-card {
-    animation: shortlist-rise 280ms ease both;
-    animation-delay: calc(var(--card-index, 0) * 30ms);
-  }
-}
-
-@keyframes shortlist-rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-.shortlist-card:hover {
-  box-shadow: inset 0 0 0 1px var(--line), var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.shortlist-card-poster {
-  position: relative;
-  aspect-ratio: 2 / 3;
-  background: var(--surface-sunken);
-  overflow: hidden;
-}
-
-.shortlist-progress-track {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--line);
-}
-
-.shortlist-progress-fill {
-  height: 100%;
-  background: var(--accent);
-  transition: width 300ms ease;
-}
-
-.shortlist-card-info {
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  flex: 1;
-}
-
-.shortlist-card-service {
-  font-size: var(--fs-sm);
-  color: var(--ink-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 500;
-  font-feature-settings: "tnum";
-}
-
-.shortlist-card-title {
-  font-size: var(--fs-md);
-  font-weight: 650;
-  color: var(--ink);
-  line-height: 1.3;
-  margin: 0;
-}
-
-.shortlist-card-reason {
-  font-size: var(--fs-sm);
-  color: var(--ink-soft);
-  line-height: 1.4;
-  margin: 0;
-  flex: 1;
-}
-
-.shortlist-card-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: var(--space-2);
-  padding: 6px 10px;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  color: #FFFFFF;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  border: none;
-  cursor: pointer;
-  white-space: nowrap;
-  align-self: flex-start;
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity 150ms ease, transform 150ms ease;
-}
-
-.shortlist-card:hover .shortlist-card-action,
-.shortlist-card:focus-within .shortlist-card-action {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.shortlist-card-action:hover { opacity: 0.88 !important; }
-.shortlist-card-action:active { opacity: 0.78 !important; transform: scale(0.97); }
-
-@media (pointer: coarse) {
-  .shortlist-card-action {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 /* Continue watching rail */
 
 .continue-rail {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-4);
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-padding: 0 var(--space-5);
@@ -2967,119 +3019,23 @@ button:disabled {
 
 .continue-rail::-webkit-scrollbar { display: none; }
 
-.continue-card {
-  flex: 0 0 220px;
-  scroll-snap-align: start;
+.continue-tile.caught-up .tile-poster {
+  opacity: 0.6;
+}
+
+/* Discovery rails */
+
+.discovery-rail {
   display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  box-shadow: inset 0 0 0 1px var(--line), var(--shadow-sm);
-  background: var(--surface);
-  transition: box-shadow 150ms ease, transform 150ms ease;
+  gap: var(--space-4);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 var(--space-5);
+  padding-bottom: var(--space-2);
+  -webkit-overflow-scrolling: touch;
 }
 
-.continue-card:hover {
-  box-shadow: inset 0 0 0 1px var(--line), var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.continue-card-poster {
-  flex: 0 0 68px;
-  align-self: stretch;
-  position: relative;
-  background: var(--surface-sunken);
-  overflow: hidden;
-}
-
-.continue-card-body {
-  flex: 1;
-  padding: 10px 12px 16px 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  min-width: 0;
-}
-
-.continue-card-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.continue-card-ep {
-  font-size: var(--fs-sm);
-  color: var(--ink-soft);
-  font-feature-settings: "tnum";
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .continue-card-ep {
-    animation: ep-advance 0.22s ease;
-  }
-}
-
-.continue-card-title {
-  font-size: var(--fs-md);
-  font-weight: 650;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-}
-
-.continue-card-runtime {
-  font-size: var(--fs-sm);
-  color: var(--ink-faint);
-  font-feature-settings: "tnum";
-}
-
-.continue-card-progress-track {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: rgba(22,24,29,0.08);
-}
-
-.continue-card-progress-fill {
-  height: 100%;
-  background: var(--accent);
-  min-width: 2px;
-  transition: width 300ms ease;
-}
-
-.continue-card-mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 8px;
-  border-radius: var(--radius-sm);
-  background: var(--surface-sunken);
-  border: 1px solid var(--line);
-  color: var(--ink-soft);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
-  white-space: nowrap;
-  align-self: flex-start;
-}
-
-.continue-card-mark:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
-}
+.discovery-rail::-webkit-scrollbar { display: none; }
 
 /* Reconciliation card */
 
@@ -3265,34 +3221,25 @@ button:disabled {
     text-overflow: ellipsis;
   }
 
-  .shortlist-card {
-    flex: 0 0 260px;
-  }
+}
 
-  .continue-card {
-    flex: 0 0 240px;
+@media (max-width: 639px) {
+  .tile {
+    flex: 0 0 108px;
   }
 }
 
 @media (min-width: 1024px) {
   .dashboard-greeting {
-    padding: var(--space-10) var(--space-8) var(--space-5);
+    padding: var(--space-7) var(--space-8) var(--space-2);
   }
 
   .dashboard-section {
-    padding: 0 var(--space-8) var(--space-10);
+    padding: 0 var(--space-8) 40px;
   }
 
   .time-fit-bar {
-    padding: 0 var(--space-8) var(--space-6);
-  }
-
-  .shortlist-card {
-    flex: 0 0 300px;
-  }
-
-  .continue-card {
-    flex: 0 0 260px;
+    padding: 0 var(--space-8) var(--space-3);
   }
 }
 
@@ -4360,10 +4307,46 @@ kbd {
 /* ─── Controls Phase 5 — Masthead moment ─────────────────────────────────────── */
 
 .greeting-masthead {
-  font-family: var(--font-display), Georgia, serif;
+  font-family: var(--font-display);
   font-size: var(--fs-lg);
   color: var(--ink-soft);
   margin-top: 4px;
   font-weight: 400;
+  letter-spacing: -0.01em;
   line-height: 1.35;
 }
+
+/* ─── POP Phase A — Functional chip system ───────────────────────────────────── */
+
+/* Base chip — 12px bold, inline-flex, 4px v / 8px h padding */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+
+/* Filled — white text on the colour (urgent states) */
+.chip-new    { background: var(--new);    color: #FFFFFF; }
+.chip-soon   { background: var(--soon);   color: #FFFFFF; }
+.chip-leaving { background: var(--leaving); color: #FFFFFF; }
+.chip-list   { background: var(--list);   color: #FFFFFF; }
+
+/* Tinted — coloured text on a pale tint (passive/score states) */
+.chip-new-soft    { background: color-mix(in srgb, var(--new) 12%, transparent);    color: var(--new); }
+.chip-soon-soft   { background: color-mix(in srgb, var(--soon) 14%, transparent);   color: var(--soon); }
+.chip-list-soft   { background: color-mix(in srgb, var(--list) 12%, transparent);   color: var(--list); }
+
+/* Score chips — dot + number */
+.chip-score {
+  font-variant-numeric: tabular-nums;
+}
+.chip-score-hi { background: color-mix(in srgb, var(--score-hi) 12%, transparent); color: var(--score-hi); }
+.chip-score-mid { background: color-mix(in srgb, var(--score-mid) 14%, transparent); color: var(--score-mid); }
+.chip-score-lo  { background: color-mix(in srgb, var(--score-lo) 18%, transparent); color: var(--ink-soft); }

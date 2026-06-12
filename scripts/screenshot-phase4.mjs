@@ -18,15 +18,20 @@ async function login(page) {
 }
 
 async function waitForRealData(page) {
-  // Wait until the starter placeholder is gone (API returned real data)
   await page.waitForFunction(() => {
-    const titles = Array.from(document.querySelectorAll('.shortlist-card-title, .continue-card-title'))
-    return titles.length > 0 && titles.every(el => !el.textContent?.includes('Example:'))
+    const tiles = Array.from(document.querySelectorAll('.tile-title'))
+    return tiles.length > 0 && tiles.every(el => !el.textContent?.includes('Example:'))
   }, { timeout: 15000 }).catch(() => console.warn('real-data timeout'))
 }
 
+async function waitForDiscovery(page) {
+  await page.waitForFunction(() => {
+    return document.querySelector('.discovery-rail') !== null
+  }, { timeout: 12000 }).catch(() => console.warn('discovery timeout'))
+  await page.waitForTimeout(500)
+}
+
 async function waitForImages(page) {
-  // Wait for all img elements in the viewport to finish loading
   await page.evaluate(() => {
     const imgs = Array.from(document.querySelectorAll('img'))
     return Promise.all(imgs.map(img =>
@@ -56,19 +61,19 @@ const browser = await chromium.launch({ headless: true })
   const page = await ctx.newPage()
   await login(page)
   await waitForRealData(page)
+  await waitForDiscovery(page)
   await waitForImages(page)
 
   await shot(page, 'phase4-final-1280-masthead.png')
 
-  // Move mouse away from cards, then capture resting state
   await page.mouse.move(640, 450)
   await page.waitForTimeout(200)
   await shot(page, 'phase4-final-1280-resting.png')
 
-  // Hover first shortlist card
-  const card = page.locator('.shortlist-card').first()
-  if (await card.count()) {
-    await card.hover()
+  // Hover first tile
+  const tile = page.locator('.shortlist-tile').first()
+  if (await tile.count()) {
+    await tile.hover()
     await page.waitForTimeout(300)
     await shot(page, 'phase4-final-1280-shortlist-hover.png')
   }
@@ -80,6 +85,14 @@ const browser = await chromium.launch({ headless: true })
   })
   await waitForImages(page)
   await shot(page, 'phase4-final-1280-continue.png')
+
+  // Scroll to discovery rails
+  await page.evaluate(() => {
+    const el = document.querySelector('.discovery-rail')
+    if (el) el.scrollIntoView({ behavior: 'instant', block: 'start' })
+  })
+  await waitForImages(page)
+  await shot(page, 'phase4-final-1280-discovery.png')
 
   await ctx.close()
 }
@@ -93,13 +106,14 @@ const browser = await chromium.launch({ headless: true })
   const page = await ctx.newPage()
   await login(page)
   await waitForRealData(page)
+  await waitForDiscovery(page)
   await waitForImages(page)
 
   await shot(page, 'phase4-final-375-masthead.png')
 
   await page.evaluate(() => {
-    const card = document.querySelector('.shortlist-card')
-    if (card) card.scrollIntoView({ behavior: 'instant', block: 'start' })
+    const tile = document.querySelector('.shortlist-tile')
+    if (tile) tile.scrollIntoView({ behavior: 'instant', block: 'start' })
   })
   await waitForImages(page)
   await shot(page, 'phase4-final-375-shortlist.png')

@@ -4,6 +4,69 @@ Read this at the start of every session before touching any CSS or component cod
 
 ---
 
+## RUNWAY-POP — Dense, colourful, alive (2026-06-12)
+
+**Status: Phase A–E complete. Passes the new bar.**
+
+Design pivot authorised by RUNWAY-POP.md. Restrained-editorial direction retired; new direction is dense, information-rich, colourful. Five phases implemented in one session.
+
+### Phase A — Re-skin
+
+- **Font**: Playfair Display → **Space Grotesk** (`layout.tsx`, `--font-display` variable unchanged)
+- **Background**: `--bg: #F6F7F9` → `#FFFFFF` (pure white page)
+- **New colour tokens**: `--brand`, `--new`, `--soon`, `--leaving`, `--list`, `--score-hi/mid/lo`, `--well`
+- **Accent updated**: `#C2362B` → `#E0342B` (brand red, slightly brighter)
+- **Type scale**: `--fs-2xl` clamp raised to 22–28px; `--fs-3xl` raised to 36–48px (masthead weight)
+- **Section headers**: `font-weight: 550` → `700`, `letter-spacing: -0.02em` (Space Grotesk convention)
+- **Chip system**: `.chip`, `.chip-new`, `.chip-soon`, `.chip-leaving`, `.chip-list`, `.chip-score-hi/mid/lo` added to CSS
+
+### Phase B — The tile
+
+Replaced `ShortlistCard` (220–300px white card + info block) and `ContinueRail` (68px poster + horizontal body) with a unified naked-poster tile:
+- `.tile`: 164px desktop, 108px mobile, `aspect-ratio: 2/3`
+- `.tile-poster`: `border-radius: 8px`, `box-shadow: inset 0 0 0 1px var(--line)`, hover `scale(1.03)` + shadow-md
+- `.tile-action`: dark overlay button, `opacity: 0` → 1 on hover; always visible on `pointer: coarse`
+- `.tile-body`: title (Inter 14px semibold) + `.tile-meta` (provider + score chip + reason/context)
+- Reason text coloured by shortlist rule: `--leaving` red, `--new` green, `--soon` orange
+- Hero backdrop (Controls Phase 5) retired: `false && heroBackdropPath` — flat white background
+
+### Phase C — Scores
+
+- `show-details/route.ts` now returns `voteAverage` (from TMDB `vote_average`)
+- `TmdbShowDetail` type updated with `voteAverage?: number`
+- `ScoreChip` component: `● {pct}%` in `--score-hi/mid/lo` tinted chip, renders when avg ≥ 0.5
+- Score chips appear on shortlist tiles and continue tiles (from `showDetailCache`)
+- Score chips appear on all discovery tiles (from `TmdbItem.vote_average` directly)
+
+### Phase D — Discovery rails
+
+Two new rails below Continue watching:
+1. **New for you** — client-derived from `streaming` state: filter `first_air_date/release_date ≥ 30 days ago`, exclude library TMDB IDs, sort by recency desc, 12 tiles
+2. **Trending this week** — new GET `/api/media-guide/discovery`, fetches TMDB `/trending/all/week?region=IE`, `revalidate: 3600`, 14 results, library exclusion client-side
+
+`DiscoveryRail` component: naked tiles, score chips, Film/TV media-type badge. Degrades to absence on API failure.
+
+### Phase E — Density audit
+
+- `.dashboard-greeting`: top padding 48px → 24px; desktop 64px → 32px
+- `.dashboard-section`: bottom padding 48px → 40px (uniform across mobile + desktop)
+- `.time-fit-bar`: bottom padding 20px → 12px
+
+### Screenshot evidence (2026-06-12, automated)
+
+`docs/screenshots/phase4-final-1280-masthead.png` — flat white, Space Grotesk bold masthead, Severance/Slow Horses tiles with ● 84% score chip, Continue watching visible below  
+`docs/screenshots/phase4-final-1280-discovery.png` — "New for you" + "Trending this week" rails with 6–7 tiles per row, score chips on every tile  
+`docs/screenshots/phase4-final-375-masthead.png` — mobile: bold 48px masthead, tiles with action overlay always visible (coarse pointer), score chip showing
+
+### New bar verdict (2026-06-12)
+
+- [x] 8+ titles visible at 1280px on the dashboard (shortlist 2 + continue 2 + new-for-you 6 visible = 10+)
+- [x] Every colour on screen maps to the 1.2 table — no decorative tinting
+- [x] Max one status chip per tile (score only; no overlapping status chips)
+- [x] Pure white background — no decorative panels
+
+---
+
 ## STYLE-RULES visual constitution audit (2026-06-12)
 
 **Status: complete — all violations fixed, screenshots confirm**
