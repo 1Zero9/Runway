@@ -1106,8 +1106,12 @@ function App() {
     if ((status === 'favorite' || status === 'recommend') && discoveryStatusFilter === 'unselected') {
       setDiscoveryStatusFilter('all')
     }
-    setRecommendationItems((current) => [result.data as RecommendationItem, ...current])
-    setToast(statusLabel(status, titleStr))
+    const saved = result.data as RecommendationItem
+    setRecommendationItems((current) => [saved, ...current])
+    showToast(statusLabel(status, titleStr), async () => {
+      await recommendationsRemoveItem(saved.id)
+      setRecommendationItems((current) => current.filter((r) => r.id !== saved.id))
+    })
   }
 
   function toggleHiddenGenre(id: number) {
