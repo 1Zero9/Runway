@@ -1331,6 +1331,8 @@ function App() {
     const priorStatus = item.status ?? 'watching'
     const priorDone = item.done
     const priorRelationship = deriveRelationship(item)
+    const priorSeason = item.currentSeason
+    const priorEpisode = item.currentEpisode
 
     setWatching((current) =>
       current.map((row) => (row.id === item.id ? { ...row, ...seenPatch } : row)),
@@ -1346,8 +1348,25 @@ function App() {
       return
     }
     setWatching((current) => current.map((row) => (row.id === item.id ? (result.data as WatchingItem) : row)))
-    showToast(`${item.title} — finished`)
     setWatchlistSource('neon')
+    showToast(`${item.title} — finished`, async () => {
+      await watchlistUpdate({
+        id: item.id,
+        relationship: priorRelationship,
+        status: priorStatus as WatchStatus,
+        done: priorDone,
+        currentSeason: priorSeason,
+        currentEpisode: priorEpisode,
+      })
+      setWatching((current) =>
+        current.map((row) =>
+          row.id === item.id
+            ? { ...row, relationship: priorRelationship, status: priorStatus as WatchStatus, done: priorDone, currentSeason: priorSeason, currentEpisode: priorEpisode }
+            : row,
+        ),
+      )
+      setCompletionPrompt(null)
+    })
     if (!completionDismissed.includes(item.id)) setCompletionPrompt(result.data as WatchingItem)
   }
 
