@@ -576,6 +576,22 @@ button:disabled {
   max-width: 100%;
 }
 
+@keyframes caught-up-exit {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-6px); }
+}
+
+.upnext-card.caught-up,
+.continue-card.caught-up {
+  pointer-events: none;
+  animation: caught-up-exit 300ms ease 2000ms both;
+}
+
+.caught-up-label {
+  color: var(--positive) !important;
+  animation: none !important;
+}
+
 .upnext-mark {
   margin-top: 3px;
   padding: 3px 7px;

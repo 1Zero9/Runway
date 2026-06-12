@@ -306,10 +306,12 @@ function App() {
   const [libraryFilter, setLibraryFilter] = useStoredState<LibraryFilter>('mediaguide.libraryFilter', 'watching')
   const [completionPrompt, setCompletionPrompt] = useState<WatchingItem | null>(null)
   const [completionDismissed, setCompletionDismissed] = useStoredState<string[]>('mediaguide.completionDismissed', [])
+  const [caughtUpIds, setCaughtUpIds] = useState<Set<string>>(new Set())
   const refreshPulseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nowLineRef = useRef<HTMLDivElement>(null)
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const caughtUpTimerRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
   const inProgressShows = watching
     .filter((i) => getWatchStatus(i) === 'watching')
@@ -1005,7 +1007,13 @@ function App() {
       ? `${item.title} — all caught up`
       : item.type === 'film' ? `${item.title} watched` : `${item.title} — episode watched`
 
+    const itemId = item.id
     showToast(toastMsg, async () => {
+      if (caughtUp) {
+        const timer = caughtUpTimerRef.current[itemId]
+        if (timer) { clearTimeout(timer); delete caughtUpTimerRef.current[itemId] }
+        setCaughtUpIds((prev) => { const s = new Set(prev); s.delete(itemId); return s })
+      }
       await updateWatchingItem(item, {
         done: priorDone,
         lastWatchedAt: priorLastWatchedAt,
@@ -1017,8 +1025,24 @@ function App() {
     })
 
     if (caughtUp) {
-      setPulsingItemId(item.id)
-      setTimeout(() => setPulsingItemId((id) => (id === item.id ? null : id)), 700)
+      setCaughtUpIds((prev) => new Set([...prev, itemId]))
+      const timer = setTimeout(async () => {
+        delete caughtUpTimerRef.current[itemId]
+        setWatching((current) =>
+          current.map((row) =>
+            row.id === itemId ? { ...row, relationship: 'finished' as Relationship, status: 'completed', done: true } : row,
+          ),
+        )
+        const result = await watchlistSetRelationship(itemId, 'finished')
+        if (result.ok) {
+          setWatching((current) => current.map((row) => row.id === itemId ? (result.data as WatchingItem) : row))
+          if (!completionDismissed.includes(itemId)) {
+            setCompletionPrompt(result.data as WatchingItem)
+          }
+        }
+        setCaughtUpIds((prev) => { const s = new Set(prev); s.delete(itemId); return s })
+      }, 2300)
+      caughtUpTimerRef.current[itemId] = timer
     }
   }
 
@@ -1604,6 +1628,7 @@ function App() {
               <ContinueRail
                 items={inProgressShows}
                 showDetailCache={showDetailCache}
+                caughtUpIds={caughtUpIds}
                 onMarkWatched={markWatched}
               />
             </div>
@@ -2011,7 +2036,7 @@ function App() {
       {tab === 'library' && (
         <section className="view">
           {inProgressShows.length > 0 && (
-            <UpNextRail items={inProgressShows} showDetailCache={showDetailCache} onMarkWatched={markWatched} />
+            <UpNextRail items={inProgressShows} showDetailCache={showDetailCache} caughtUpIds={caughtUpIds} onMarkWatched={markWatched} />
           )}
           <div className="library-filter-bar" role="group" aria-label="Filter your library">
             {([
@@ -2686,15 +2711,18 @@ function ShortlistCard({
 function ContinueRail({
   items,
   showDetailCache,
+  caughtUpIds,
   onMarkWatched,
 }: {
   items: WatchingItem[]
   showDetailCache: Record<number, TmdbShowDetail>
+  caughtUpIds: Set<string>
   onMarkWatched: (item: WatchingItem, detail?: TmdbShowDetail) => void
 }) {
   return (
     <div className="continue-rail">
       {items.slice(0, 10).map((item) => {
+        const isCaughtUp = caughtUpIds.has(item.id)
         const showDetail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
         const progress = showDetail && item.type !== 'film' && item.type !== 'sport'
           ? computeWatchProgress(item, showDetail)
@@ -2704,7 +2732,7 @@ function ContinueRail({
             ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
             : null
         return (
-          <div key={item.id} className="continue-card">
+          <div key={item.id} className={isCaughtUp ? 'continue-card caught-up' : 'continue-card'}>
             <div className="continue-card-poster">
               {item.posterPath ? (
                 <Image
@@ -2722,17 +2750,23 @@ function ContinueRail({
                 </div>
               )}
               <div className="continue-card-progress-track">
-                <div className="continue-card-progress-fill" style={{ width: `${Math.max(2, progress)}%` }} />
+                <div className="continue-card-progress-fill" style={{ width: isCaughtUp ? '100%' : `${Math.max(2, progress)}%` }} />
               </div>
             </div>
             <div className="continue-card-info">
-              {epLabel && <span key={epLabel} className="continue-card-ep">{epLabel}</span>}
+              {isCaughtUp ? (
+                <span className="continue-card-ep caught-up-label">Caught up ✓</span>
+              ) : (
+                epLabel && <span key={epLabel} className="continue-card-ep">{epLabel}</span>
+              )}
               <span className="continue-card-title">{item.title}</span>
             </div>
-            <button type="button" className="continue-card-mark" onClick={() => onMarkWatched(item, showDetail)}>
-              <Check size={11} />
-              {item.type === 'film' ? 'Watched' : 'Ep watched'}
-            </button>
+            {!isCaughtUp && (
+              <button type="button" className="continue-card-mark" onClick={() => onMarkWatched(item, showDetail)}>
+                <Check size={11} />
+                {item.type === 'film' ? 'Watched' : 'Ep watched'}
+              </button>
+            )}
           </div>
         )
       })}
@@ -2873,28 +2907,44 @@ function WatchlistGrid({
 function UpNextRail({
   items,
   showDetailCache,
+  caughtUpIds,
   onMarkWatched,
 }: {
   items: WatchingItem[]
   showDetailCache: Record<number, TmdbShowDetail>
+  caughtUpIds: Set<string>
   onMarkWatched: (item: WatchingItem, detail?: TmdbShowDetail) => void
 }) {
   return (
     <div className="upnext-rail">
       {items.slice(0, 8).map((item, index) => {
+        const isCaughtUp = caughtUpIds.has(item.id)
         const detail = item.tmdbId ? showDetailCache[item.tmdbId] : undefined
         const epLabel =
           item.type !== 'film' && item.type !== 'sport'
             ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
             : item.service
         return (
-          <div key={item.id} className="upnext-card" style={{ '--card-index': index } as CSSProperties}>
-            <span key={epLabel} className="upnext-episode">{epLabel}</span>
-            <span className="upnext-title">{item.title}</span>
-            <button type="button" className="upnext-mark" onClick={() => onMarkWatched(item, detail)}>
-              <Check size={11} />
-              {item.type === 'film' ? 'Watched' : 'Ep watched'}
-            </button>
+          <div
+            key={item.id}
+            className={isCaughtUp ? 'upnext-card caught-up' : 'upnext-card'}
+            style={{ '--card-index': index } as CSSProperties}
+          >
+            {isCaughtUp ? (
+              <>
+                <span className="upnext-episode caught-up-label">Caught up ✓</span>
+                <span className="upnext-title">{item.title}</span>
+              </>
+            ) : (
+              <>
+                <span key={epLabel} className="upnext-episode">{epLabel}</span>
+                <span className="upnext-title">{item.title}</span>
+                <button type="button" className="upnext-mark" onClick={() => onMarkWatched(item, detail)}>
+                  <Check size={11} />
+                  {item.type === 'film' ? 'Watched' : 'Ep watched'}
+                </button>
+              </>
+            )}
           </div>
         )
       })}
