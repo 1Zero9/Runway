@@ -4301,7 +4301,7 @@ kbd {
   pointer-events: none;
 }
 
-.dashboard-hero-wrap > * {
+.dashboard-hero-wrap > *:not(.dashboard-hero-bg) {
   position: relative;
   z-index: 1;
 }
