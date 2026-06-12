@@ -315,6 +315,7 @@ function App() {
   const [pulsingItemId, setPulsingItemId] = useState<string | null>(null)
   const [timeFit, setTimeFit] = useState<TimeFit>('any')
   const [reconDismissed, setReconDismissed] = useState(false)
+  const [heroLoaded, setHeroLoaded] = useState(false)
   const [calendarToken, setCalendarToken] = useState<string | null>(null)
   const [calendarTokenLoading, setCalendarTokenLoading] = useState(false)
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
@@ -582,6 +583,10 @@ function App() {
     () => (topItemTmdbId ? showDetailCache[topItemTmdbId]?.backdropPath ?? null : null),
     [topItemTmdbId, showDetailCache],
   )
+
+  useEffect(() => {
+    setHeroLoaded(false)
+  }, [heroBackdropPath])
 
   const calendarEvents = useMemo(() => {
     const watchEvents = watching
@@ -1727,20 +1732,35 @@ function App() {
 
       {tab === 'tonight' && (
         <section className="view dashboard">
-          <div className="dashboard-hero-wrap">
+          <div className={heroLoaded ? 'dashboard-hero-wrap has-backdrop' : 'dashboard-hero-wrap'}>
 
-            {false && heroBackdropPath && (
-              <div className="dashboard-hero-bg" aria-hidden>
+            {heroBackdropPath && (
+              <>
+                {/* Hidden preload image — fires onLoad, never rendered visibly */}
                 <Image
                   key={heroBackdropPath}
                   src={`https://image.tmdb.org/t/p/w1280${heroBackdropPath}`}
                   alt=""
                   width={1280}
                   height={720}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   priority
+                  style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
+                  onLoad={() => setHeroLoaded(true)}
                 />
-              </div>
+                {/* Visible ambient backdrop — only mounts after load confirmed */}
+                {heroLoaded && (
+                  <div className="dashboard-hero-bg" aria-hidden>
+                    <Image
+                      key={`backdrop-${heroBackdropPath}`}
+                      src={`https://image.tmdb.org/t/p/w1280${heroBackdropPath}`}
+                      alt=""
+                      width={1280}
+                      height={720}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  </div>
+                )}
+              </>
             )}
             {/* Greeting */}
             <div className="dashboard-greeting">

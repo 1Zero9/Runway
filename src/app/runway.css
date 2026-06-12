@@ -4599,39 +4599,51 @@ kbd {
   overflow: hidden;
 }
 
-@keyframes hero-crossfade {
+@keyframes hero-fade-in {
   from { opacity: 0; }
-  to   { opacity: 0.14; }
+  to   { opacity: 1; }
 }
 
 .dashboard-hero-bg img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  filter: blur(48px) saturate(1.3);
-  transform: scale(1.15);
-  opacity: 0.14;
+  filter: blur(52px) saturate(1.2);
+  transform: scale(1.12);
+  opacity: 0.15;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .dashboard-hero-bg img {
-    animation: hero-crossfade 400ms ease;
+  .dashboard-hero-bg {
+    animation: hero-fade-in 400ms ease both;
   }
 }
 
+/* Top fade — prevents hard edge at the navigation bar */
+.dashboard-hero-wrap.has-backdrop::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  height: 35%;
+  z-index: 1;
+  background: linear-gradient(to bottom, var(--bg) 0%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Bottom fade — dissolves fully before reaching the sections below hero-wrap */
 .dashboard-hero-wrap.has-backdrop::after {
   content: '';
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  height: 40%;
-  z-index: 0;
-  background: linear-gradient(to bottom, transparent, var(--bg));
+  height: 65%;
+  z-index: 1;
+  background: linear-gradient(to bottom, transparent 0%, transparent 15%, var(--bg) 75%);
   pointer-events: none;
 }
 
 .dashboard-hero-wrap > *:not(.dashboard-hero-bg) {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 /* ─── Controls Phase 5 — Masthead moment ─────────────────────────────────────── */
