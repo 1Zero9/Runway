@@ -193,10 +193,10 @@ const appVersion = '0.1.5'
 // Phase 3 (RUNWAY-RESET.md): strip to three modules until quality proven.
 // Re-admit each module in Phase 5 after screenshot evidence + prod-bar verdict.
 const DASHBOARD_MODULES = {
-  reconciliation: false,
+  reconciliation: true,
   comingUp:       true,
   onTvTonight:    true,
-  worthALook:     false,
+  worthALook:     true,
 } as const
 const watchStatusOrder: WatchStatus[] = ['watching', 'waiting', 'planned', 'completed', 'dropped']
 
@@ -664,7 +664,7 @@ function App() {
         }
       })
     const watchItems = activeWatchingItems
-      .filter((i) => i.nextEpisode >= today)
+      .filter((i) => i.nextEpisode >= today && i.logMode !== 'archive')
       .map((i) => {
         const days = getDaysUntil(i.nextEpisode)
         const seasonPrefix =
@@ -1800,7 +1800,7 @@ function App() {
             ) : null}
           </div> {/* end dashboard-hero-wrap */}
 
-          {/* Continue watching — always shown when items exist; reconciliation replaced by this */}
+          {/* Continue watching */}
           {inProgressShows.length > 0 && watching.length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">Continue watching</h2>
@@ -1813,7 +1813,16 @@ function App() {
             </div>
           )}
 
-          {/* Discovery + personal modules — spec order: New for you → Coming up → Trending → On TV tonight */}
+          {/* Reconciliation strip — single title, 7+ day lapse, directly under Continue watching */}
+          {DASHBOARD_MODULES.reconciliation && reconItems.length > 0 && (
+            <ReconStrip
+              item={reconItems[0]}
+              onConfirm={(item) => markWatched(item, item.tmdbId ? showDetailCache[item.tmdbId] : undefined)}
+              onDismiss={() => setReconDismissed(true)}
+            />
+          )}
+
+          {/* Discovery modules: New for you → Coming up → Trending → On TV tonight → Worth a look */}
           {newForYou.length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">New for you</h2>
@@ -1851,65 +1860,46 @@ function App() {
             </div>
           )}
 
-          {DASHBOARD_MODULES.reconciliation && reconItems.length > 0 && (
-            <ReconciliationCard
-              items={reconItems}
-              onConfirm={(item) => markWatched(item, item.tmdbId ? showDetailCache[item.tmdbId] : undefined)}
-              onDismiss={() => setReconDismissed(true)}
-            />
-          )}
-
-          {DASHBOARD_MODULES.onTvTonight && (
+          {/* On TV tonight — absent when no tracked shows match */}
+          {DASHBOARD_MODULES.onTvTonight && tvTonightTracked.length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">On TV tonight</h2>
-              {tvTonightTracked.length > 0 ? (
-                <div className="tv-tonight-list">
-                  {tvTonightTracked.map((item) => {
-                    const timeStatus = getProgrammeStatus(item, now.getTime())
-                    return (
-                      <div key={item.id} className="tv-tonight-row">
-                        <span className="tv-tonight-time">{item.airtime || formatTime(item.airstamp)}</span>
-                        <span className="tv-tonight-channel">{item.show.network?.name ?? item.show.webChannel?.name ?? ''}</span>
-                        <span className="tv-tonight-title">{item.show.name}</span>
-                        <div className="tv-tonight-chips">
-                          {timeStatus === 'on-now' && <span className="status-chip chip-on-now">On now</span>}
-                          {timeStatus === 'next' && <span className="status-chip chip-next">Next</span>}
-                          <span className="status-chip chip-tracked">Tracked</span>
-                        </div>
+              <div className="tv-tonight-list">
+                {tvTonightTracked.map((item) => {
+                  const timeStatus = getProgrammeStatus(item, now.getTime())
+                  return (
+                    <div key={item.id} className="tv-tonight-row">
+                      <span className="tv-tonight-time">{item.airtime || formatTime(item.airstamp)}</span>
+                      <span className="tv-tonight-channel">{item.show.network?.name ?? item.show.webChannel?.name ?? ''}</span>
+                      <span className="tv-tonight-title">{item.show.name}</span>
+                      <div className="tv-tonight-chips">
+                        {timeStatus === 'on-now' && <span className="status-chip chip-on-now">On now</span>}
+                        {timeStatus === 'next' && <span className="status-chip chip-next">Next</span>}
+                        <span className="status-chip chip-tracked">Tracked</span>
                       </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div className="tv-tonight-empty">
-                  <span>Nothing of yours on TV tonight.</span>
-                  <button type="button" className="quiet-link" onClick={() => setTab('guide')}>Full guide →</button>
-                </div>
-              )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
-          {DASHBOARD_MODULES.worthALook && suggestions.length > 0 && (
+          {/* Worth a look — artwork-complete only, capped at 6 */}
+          {DASHBOARD_MODULES.worthALook && suggestions.filter((s) => s.poster_path).length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">Worth a look</h2>
               <div className="suggestion-strip">
-                {suggestions.slice(0, 6).map((item) => (
+                {suggestions.filter((s) => s.poster_path).slice(0, 6).map((item) => (
                   <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
-                    {item.poster_path ? (
-                      <Image
-                        src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
-                        alt=""
-                        width={44}
-                        height={64}
-                        style={{ width: '44px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block' }}
-                        placeholder="blur"
-                        blurDataURL={makePosterBlur(null)}
-                      />
-                    ) : (
-                      <div className="poster-fallback" style={{ width: '44px', height: '64px', borderRadius: '6px', background: 'var(--surface-sunken)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span className="poster-fallback-initial">{((item.title ?? item.name ?? '?')[0]).toUpperCase()}</span>
-                      </div>
-                    )}
+                    <Image
+                      src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
+                      alt=""
+                      width={44}
+                      height={64}
+                      style={{ width: '44px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block', flexShrink: 0 }}
+                      placeholder="blur"
+                      blurDataURL={makePosterBlur(null)}
+                    />
                     <div className="suggestion-info">
                       <strong>{item.title ?? item.name}</strong>
                       <span>{item.provider}</span>
@@ -3177,43 +3167,29 @@ function DiscoveryRail({ items }: { items: TmdbItem[] }) {
   )
 }
 
-function ReconciliationCard({
-  items,
+function ReconStrip({
+  item,
   onConfirm,
   onDismiss,
 }: {
-  items: WatchingItem[]
+  item: WatchingItem
   onConfirm: (item: WatchingItem) => void
   onDismiss: () => void
 }) {
+  const epLabel =
+    item.type !== 'film' && item.type !== 'sport'
+      ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
+      : null
   return (
-    <div className="recon-card">
-      <div className="recon-card-header">
-        <span className="recon-card-label">Catch me up — did you watch these?</span>
-        <button type="button" className="icon-button quiet" onClick={onDismiss} aria-label="Dismiss">
-          <span aria-hidden>×</span>
-        </button>
-      </div>
-      <div className="recon-list">
-        {items.slice(0, 4).map((item) => {
-          const epLabel =
-            item.type !== 'film' && item.type !== 'sport'
-              ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
-              : null
-          return (
-            <div key={item.id} className="recon-row">
-              <div className="recon-row-info">
-                <span className="recon-row-title">{item.title}</span>
-                {epLabel && <span className="recon-row-ep">{epLabel}</span>}
-              </div>
-              <button type="button" className="recon-confirm" onClick={() => onConfirm(item)}>
-                <Check size={12} />
-                Watched
-              </button>
-            </div>
-          )
-        })}
-      </div>
+    <div className="recon-strip" role="status">
+      <span className="recon-strip-text">
+        Did you watch <strong>{item.title}</strong>
+        {epLabel && <span className="recon-strip-ep">{epLabel}</span>}?
+      </span>
+      <button type="button" className="recon-strip-yes" onClick={() => onConfirm(item)}>
+        <Check size={11} /> Yes
+      </button>
+      <button type="button" className="recon-strip-skip" onClick={onDismiss} aria-label="Dismiss">✕</button>
     </div>
   )
 }

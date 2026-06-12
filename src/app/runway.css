@@ -3309,92 +3309,77 @@ button:disabled {
 
 /* Reconciliation card */
 
-.recon-card {
-  margin: 0 var(--space-5) var(--space-6);
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
+/* Reconciliation strip — single-line dismissible, under Continue watching */
+
+.recon-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -16px var(--space-5) 24px;   /* pull up tight under Continue watching section */
+  padding: 8px 12px;
   background: var(--surface);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
 }
 
-.recon-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-3);
-}
-
-.recon-card-label {
-  font-size: var(--fs-base);
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.recon-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.recon-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-2) 0;
-  border-top: 1px solid var(--line);
-}
-
-.recon-row:first-child {
-  border-top: none;
-  padding-top: 0;
-}
-
-.recon-row-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.recon-strip-text {
+  flex: 1;
   min-width: 0;
-}
-
-.recon-row-title {
-  font-size: var(--fs-base);
-  font-weight: 600;
-  color: var(--ink);
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.recon-row-ep {
+.recon-strip-text strong {
+  color: var(--ink);
+}
+
+.recon-strip-ep {
+  margin-left: 5px;
   font-size: var(--fs-xs);
-  color: var(--ink-faint);
+  font-weight: 700;
+  color: var(--accent);
   font-feature-settings: "tnum";
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
 
-.recon-confirm {
+.recon-strip-yes {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
+  gap: 4px;
+  padding: 4px 10px;
   border-radius: var(--radius-sm);
-  background: var(--surface-sunken);
   border: 1px solid var(--line);
+  background: var(--surface-sunken);
   color: var(--ink-soft);
-  font-size: var(--fs-sm);
-  font-weight: 500;
+  font-size: var(--fs-xs);
+  font-weight: 650;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 120ms, color 120ms, border-color 120ms;
 }
 
-.recon-confirm:hover {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent);
+.recon-strip-yes:hover {
+  background: color-mix(in srgb, var(--new) 10%, transparent);
+  border-color: color-mix(in srgb, var(--new) 30%, transparent);
+  color: var(--new);
 }
+
+.recon-strip-skip {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-faint);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+
+.recon-strip-skip:hover { color: var(--ink); }
 
 /* On TV tonight */
 
