@@ -2287,7 +2287,18 @@ function App() {
                         >
                           {watchStatus === 'completed' && <Check size={16} />}
                         </button>
-                        <div>
+                        {item.posterPath && (
+                          <div className="watch-item-poster" aria-hidden>
+                            <Image
+                              src={`https://image.tmdb.org/t/p/w92${item.posterPath}`}
+                              alt=""
+                              width={46}
+                              height={69}
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          </div>
+                        )}
+                        <div className="watch-item-content">
                           <h2
                             style={transitioningItemId === item.id ? { viewTransitionName: 'detail-title' } as CSSProperties : undefined}
                           >{item.title}</h2>
