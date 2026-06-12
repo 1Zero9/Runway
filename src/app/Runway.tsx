@@ -2834,6 +2834,22 @@ function ScoreChip({ avg }: { avg: number | undefined }) {
   return <span className={scoreChipClass(avg)}>● {pct}%</span>
 }
 
+const PROVIDER_BRAND: Record<string, string> = {
+  'Netflix':       '#E50914',
+  'Prime Video':   '#00A8E0',
+  'Apple TV+':     '#1C1C1E',
+  'Sky / NOW':     '#007F8C',
+  'NOW':           '#007F8C',
+  'Paramount+':    '#1B4FA9',
+}
+
+function ProviderBadge({ name }: { name: string | undefined }) {
+  if (!name) return null
+  const bg = PROVIDER_BRAND[name]
+  if (!bg) return <span className="tile-provider">{name}</span>
+  return <span className="tile-provider provider-badge" style={{ background: bg }}>{name}</span>
+}
+
 function statusChipForRule(rule: ShortlistRule, leavingDate?: string | null): { text: string; cls: string } | null {
   if (rule === 'LEAVING_SOON' && leavingDate) {
     const d = Math.round((new Date(leavingDate + 'T12:00:00Z').getTime() - Date.now()) / 86400000)
@@ -2902,7 +2918,7 @@ function ShortlistCard({
         <div className="tile-title">{item.title}</div>
         <div className="tile-meta">
           <div className="tile-meta-row">
-            {item.service && <span className="tile-provider">{item.service}</span>}
+            <ProviderBadge name={item.service} />
             <ScoreChip avg={showDetail?.voteAverage} />
           </div>
           <span className={`tile-reason ${ruleReasonClass(rule)}`}>{reason}</span>
@@ -2971,6 +2987,7 @@ function ContinueRail({
               <div className="tile-title">{item.title}</div>
               <div className="tile-meta">
                 <div className="tile-meta-row">
+                  <ProviderBadge name={item.service} />
                   <ScoreChip avg={showDetail?.voteAverage} />
                 </div>
                 {isCaughtUp ? (
@@ -3255,54 +3272,45 @@ function MediaGrid({
         const isTracked = trackedTitleSet.has(normalizeTitle(item.title ?? item.name ?? ''))
         const hasStatus = itemStatuses.size > 0 || isTracked
         const dominantColour = dominantColourByKey.get(key)
+        const title = item.title ?? item.name ?? ''
+        const typeLabel = item.media_type === 'tv' ? 'TV' : 'Film'
+        const providerLabel = item.provider ?? typeLabel
         return (
           <article
             className={hasStatus ? 'media-card selected' : 'media-card'}
             key={`${item.media_type ?? 'movie'}-${item.provider}-${item.id}`}
           >
-            {item.poster_path ? (
-              <Image
-                src={`https://image.tmdb.org/t/p/w342${item.poster_path}`}
-                alt=""
-                width={342}
-                height={513}
-                sizes="(max-width: 720px) 45vw, (max-width: 1180px) 25vw, 220px"
-                style={{ width: '100%', height: 'auto', display: 'block' }}
-                placeholder="blur"
-                blurDataURL={makePosterBlur(dominantColour)}
-              />
-            ) : (
-              <div className="poster-fallback large">
-                <span className="poster-fallback-initial">{((item.title ?? item.name ?? '?')[0]).toUpperCase()}</span>
-                <span className="poster-fallback-title">{item.title ?? item.name}</span>
-              </div>
-            )}
-            <div>
-              <span>
-                {[
-                  item.media_type === 'tv' ? 'TV show' : 'Movie',
-                  item.provider ?? item.release_date ?? item.first_air_date ?? 'Ireland',
-                ]
-                  .filter(Boolean)
-                  .join(' - ')}
-              </span>
-              <h2>{item.title ?? item.name}</h2>
-              {item.genre_ids && (
-                <div className="media-genres">
-                  {item.genre_ids
-                    .map((id) => genreMap[id])
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((genre) => (
-                      <small key={genre}>{genre}</small>
-                    ))}
+            <div className="tile-poster">
+              {item.poster_path ? (
+                <Image
+                  src={`https://image.tmdb.org/t/p/w342${item.poster_path}`}
+                  alt=""
+                  width={342}
+                  height={513}
+                  sizes="(max-width: 720px) 45vw, (max-width: 1180px) 25vw, 220px"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  placeholder="blur"
+                  blurDataURL={makePosterBlur(dominantColour)}
+                />
+              ) : (
+                <div className="tile-poster-fallback">
+                  <span className="tile-poster-initial">{(title[0] ?? '?').toUpperCase()}</span>
                 </div>
               )}
-              <p>{item.overview || 'No summary available.'}</p>
+              {isTracked && <span className="chip chip-list tile-status-chip">In library</span>}
+            </div>
+            <div className="tile-body">
+              <div className="tile-title">{title}</div>
+              <div className="tile-meta">
+                <div className="tile-meta-row">
+                  <ProviderBadge name={providerLabel} />
+                  <ScoreChip avg={item.vote_average} />
+                </div>
+              </div>
             </div>
             <div className="media-actions">
               <button className={isTracked ? 'selected-action' : ''} type="button" onClick={() => onTrack(item)}>
-                <Plus size={16} />
+                <Plus size={14} />
                 Track
               </button>
               <button
@@ -3310,7 +3318,7 @@ function MediaGrid({
                 type="button"
                 onClick={() => onAction(item, 'seen')}
               >
-                <Eye size={16} />
+                <Eye size={14} />
                 Seen
               </button>
               <button
@@ -3318,7 +3326,7 @@ function MediaGrid({
                 type="button"
                 onClick={() => onAction(item, 'favorite')}
               >
-                <Heart size={16} />
+                <Heart size={14} />
                 Fav
               </button>
               <button
@@ -3326,7 +3334,7 @@ function MediaGrid({
                 type="button"
                 onClick={() => onAction(item, 'recommend')}
               >
-                <Send size={16} />
+                <Send size={14} />
                 Recommend
               </button>
               <button
@@ -3334,7 +3342,7 @@ function MediaGrid({
                 type="button"
                 onClick={() => onAction(item, 'not_interested')}
               >
-                <ThumbsDown size={16} />
+                <ThumbsDown size={14} />
                 Not for me
               </button>
             </div>

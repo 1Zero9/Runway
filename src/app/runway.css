@@ -1348,42 +1348,32 @@ button:disabled {
 }
 
 .media-card {
-  overflow: hidden;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow 150ms ease, transform 150ms ease;
+  display: flex;
+  flex-direction: column;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  transition: none;
 }
 
 .media-card:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.media-card:hover .tile-poster {
+  transform: scale(1.03);
   box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
 }
 
-.media-card.selected {
-  border-color: rgba(var(--accent-rgb), 0.50);
-  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.15), var(--shadow-md);
+.media-card.selected .tile-poster {
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-sm);
 }
 
-.media-card img {
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  object-fit: cover;
-  background: var(--surface-sunken);
-}
-
-.media-card div:not(.poster-fallback):not(.media-actions) {
-  padding: 10px;
-}
-
-.media-card p {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+.media-card.selected:hover .tile-poster {
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-md);
 }
 
 .media-genres {
@@ -1408,7 +1398,6 @@ button:disabled {
   padding: 3px var(--space-1);
 }
 
-.media-card button,
 .primary-button {
   display: inline-flex;
   align-items: center;
@@ -1422,14 +1411,20 @@ button:disabled {
 .media-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-1);
-  padding: 9px;
+  gap: 4px;
+  padding: var(--space-2) 0 0;
 }
 
 .media-actions button {
-  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 30px;
   margin: 0;
   font-size: var(--fs-xs);
+  font-weight: 650;
+  border-radius: 8px;
 }
 
 .media-actions button.selected-action {
@@ -1441,6 +1436,19 @@ button:disabled {
 
 .media-actions button:last-child {
   grid-column: span 2;
+}
+
+/* Provider badge — brand-coloured pill */
+.tile-provider.provider-badge {
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  text-transform: none;
+  color: #fff;
+  flex-shrink: 0;
 }
 
 /* ── Discovery filters ──────────────────────────────────────────────────── */
