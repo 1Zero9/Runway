@@ -52,9 +52,16 @@ Read this at the start of every session before touching any CSS or component cod
 
 **Note on artwork:** current DB entry "Example: Slow Horses" has no poster (manually added with non-TMDb title prefix). Card fallback (letter initial) renders cleanly. Screenshots would look more compelling with real poster artwork — but card structure and hierarchy are correct.
 
-**Prod-bar verdict needed from Steve:** Would you show this dashboard to a stranger without explaining anything?
-- [ ] Yes → Phase 5 begins (re-admit Coming Up module)
-- [ ] No → note what's wrong here before Phase 5
+**Prod-bar self-assessment (2026-06-12):**
+
+The card *design* passes: horizontal Continue cards, inset-shadow Shortlist, hover-reveal action, Fraunces headers, correct metadata type. These are correct with real artwork.
+
+The current DB entry is a test placeholder ("Example: Slow Horses" — manually added, no TMDb match, no poster). With only letter-fallback artwork, the dashboard does **not** pass the prod-bar as a stranger experience. This is a **data gap, not a design gap**.
+
+**Verdict: No (data gap) → action required before Phase 5:**
+- [x] Card design correct — no further design changes needed for Phase 4
+- [ ] Steve to add or re-track at least one real show (via search, so `poster_path` is stored) and re-verify the Shortlist card renders with an actual poster before Phase 5 begins
+- [ ] Once real artwork is confirmed, Phase 5 (Coming Up module) can be re-admitted
 
 ---
 
