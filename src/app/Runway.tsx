@@ -3449,6 +3449,16 @@ function ShowDetailPanel({
   return (
     <div className="show-detail-panel">
       {showDetail.backdropPath && (
+        <div className="show-detail-panel-tint" aria-hidden>
+          <Image
+            src={`https://image.tmdb.org/t/p/w780${showDetail.backdropPath}`}
+            alt=""
+            fill
+            style={{ objectFit: 'cover' }}
+          />
+        </div>
+      )}
+      {showDetail.backdropPath && (
         <div className="show-detail-backdrop">
           <Image
             src={`https://image.tmdb.org/t/p/w780${showDetail.backdropPath}`}

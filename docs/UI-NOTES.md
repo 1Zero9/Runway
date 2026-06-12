@@ -839,7 +839,7 @@ Dropped items show an `.abandoned-meta` row: "Dropped after [date]" + `.pickup-b
 
 ## CONTROLS Phase 5 (The Wow pass — ambient atmosphere) ✅
 
-**Adapted from RUNWAY-CONTROLS.md Phase 5**
+**Adapted from RUNWAY-CONTROLS.md Phase 5 — updated 2026-06-12 with detail tint + two-mood screenshots**
 
 **Ambient hero backdrop:**
 
@@ -853,8 +853,9 @@ Dropped items show an `.abandoned-meta` row: "Dropped after [date]" + `.pickup-b
 - CSS: `filter: blur(48px) saturate(1.3); transform: scale(1.15); opacity: 0.14` — washed to ~14% strength
 - `.has-backdrop::after` pseudo-element — gradient overlay, `transparent → var(--bg)` over bottom 40%, dissolves the blur into the page background
 - All `.dashboard-hero-wrap > *` get `position: relative; z-index: 1` so content sits above the backdrop
+- `@keyframes hero-crossfade` — 400ms fade-in on image mount; reduced-motion guard omits animation
 
-`key={heroBackdropPath}` on the Image triggers a React remount when the top show changes, which causes the browser to fade in the new image.
+`key={heroBackdropPath}` on the Image triggers a React remount when the top show changes, producing the 400ms crossfade.
 
 **Masthead moment:**
 
@@ -865,15 +866,28 @@ Dropped items show an `.abandoned-meta` row: "Dropped after [date]" + `.pickup-b
 
 Rendered as `.greeting-masthead` (Fraunces, `--fs-lg`, `--ink-soft`) below the date in `.dashboard-greeting`.
 
-**New CSS:** `.dashboard-hero-wrap`, `.dashboard-hero-bg`, `.dashboard-hero-bg img`, `.has-backdrop::after`, `.greeting-masthead`
+**Detail page backdrop tint (2026-06-12):**
+
+When `showDetail.backdropPath` is present, `ShowDetailPanel` renders a `.show-detail-panel-tint` div as the first child — absolutely positioned, 300px tall, z-index: 0. Contains the backdrop image at `filter: blur(60px) saturate(1.3); transform: scale(1.2); opacity: 0.06` (~6% perceived strength). A `::after` gradient fades the tint to `var(--surface)` over the bottom 60%. All other panel content sits at `z-index: 1` via `.show-detail-panel > *:not(.show-detail-panel-tint) { position: relative; z-index: 1 }`. The panel uses `isolation: isolate` to contain the stacking context.
+
+**New CSS (2026-06-12):** `.show-detail-panel-tint`, `.show-detail-panel-tint img`, `.show-detail-panel-tint::after`; `.show-detail-panel` gains `isolation: isolate; overflow: hidden`
+
+**Screenshot evidence (2026-06-12, automated via Playwright):**
+
+`docs/screenshots/phase5-mood-slowhorses.png` — 1280px: Slow Horses as #1 pick (warmer grey backdrop tint behind greeting/shortlist)
+`docs/screenshots/phase5-mood-severance.png` — 1280px: Severance as #1 pick (cooler, more cinematic backdrop tint)
+`docs/screenshots/phase5-detail-tint-slowhorses.png` — Library: Severance detail panel open; backdrop bleeds behind episode grid at ~6%
 
 **Acceptance criteria:**
 - ✅ Top shortlist item's backdrop auto-fetched on first dashboard load
 - ✅ Backdrop: ~14% opacity, heavy blur, gradient dissolve at bottom — text legible (AAA)
 - ✅ Masthead line generated from live data
 - ✅ No backdrop → wrap is transparent (no visual change to layout)
+- ✅ Detail panel: backdrop tint at ~6% behind top 300px, fades to `--surface`
+- ✅ Two-mood screenshots: Slow Horses vs Severance as top pick — different atmospheres, same structure
+- ✅ 400ms hero crossfade when top pick changes; static under `prefers-reduced-motion`
 - ✅ TypeScript: clean
-- ✅ 87 tests pass
+- ✅ 88 tests pass
 
 ---
 
