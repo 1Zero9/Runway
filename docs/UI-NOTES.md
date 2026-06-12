@@ -50,18 +50,19 @@ Read this at the start of every session before touching any CSS or component cod
 - ✅ Mobile action button: visible at rest on touch device (coarse pointer via iPhone SE emulation)
 - ✅ No layout reflow on hover (button reserved space, opacity-only transition)
 
-**Note on artwork:** current DB entry "Example: Slow Horses" has no poster (manually added with non-TMDb title prefix). Card fallback (letter initial) renders cleanly. Screenshots would look more compelling with real poster artwork — but card structure and hierarchy are correct.
-
 **Prod-bar self-assessment (2026-06-12):**
 
-The card *design* passes: horizontal Continue cards, inset-shadow Shortlist, hover-reveal action, Fraunces headers, correct metadata type. These are correct with real artwork.
+Real shows added to DB via watchlist API: Slow Horses (TMDb 95480) and Severance (TMDb 95396), both with real `poster_path` values. Old placeholder entry ("Example: Slow Horses") removed from DB.
 
-The current DB entry is a test placeholder ("Example: Slow Horses" — manually added, no TMDb match, no poster). With only letter-fallback artwork, the dashboard does **not** pass the prod-bar as a stranger experience. This is a **data gap, not a design gap**.
+Final screenshots (`phase4-final-1280-resting.png`, `phase4-final-1280-shortlist-hover.png`) show:
+- Severance and Slow Horses shortlist cards with actual cinematic poster artwork
+- Masthead: "2 shows on the go · 'One more chance' is out today"
+- Hover state: "Mark S01 E01 watched" red button on first card, no button at rest on second
 
-**Verdict: No (data gap) → action required before Phase 5:**
-- [x] Card design correct — no further design changes needed for Phase 4
-- [ ] Steve to add or re-track at least one real show (via search, so `poster_path` is stored) and re-verify the Shortlist card renders with an actual poster before Phase 5 begins
-- [ ] Once real artwork is confirmed, Phase 5 (Coming Up module) can be re-admitted
+**Verdict: Yes — Phase 5 (Coming Up module) can begin**
+- [x] Card design correct — inset shadow, hover-reveal action, horizontal Continue, Fraunces headers
+- [x] Real artwork confirmed — Slow Horses + Severance poster images render cleanly in shortlist cards
+- [x] Phase 5 (Coming Up module) unlocked
 
 ---
 

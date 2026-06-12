@@ -15,7 +15,29 @@ async function login(page) {
   await page.fill('input[type="password"]', PASSWORD)
   await page.click('button[type="submit"]')
   await page.waitForURL('**/')
-  await page.waitForTimeout(2500)
+}
+
+async function waitForRealData(page) {
+  // Wait until the starter placeholder is gone (API returned real data)
+  await page.waitForFunction(() => {
+    const titles = Array.from(document.querySelectorAll('.shortlist-card-title, .continue-card-title'))
+    return titles.length > 0 && titles.every(el => !el.textContent?.includes('Example:'))
+  }, { timeout: 15000 }).catch(() => console.warn('real-data timeout'))
+}
+
+async function waitForImages(page) {
+  // Wait for all img elements in the viewport to finish loading
+  await page.evaluate(() => {
+    const imgs = Array.from(document.querySelectorAll('img'))
+    return Promise.all(imgs.map(img =>
+      img.complete ? Promise.resolve() : new Promise(resolve => {
+        img.addEventListener('load', resolve)
+        img.addEventListener('error', resolve)
+        setTimeout(resolve, 3000)
+      })
+    ))
+  })
+  await page.waitForTimeout(300)
 }
 
 async function shot(page, name) {
@@ -23,37 +45,46 @@ async function shot(page, name) {
   console.log('saved', name)
 }
 
-const browser = await chromium.launch()
+const browser = await chromium.launch({ headless: true })
 
 // 1280px desktop
 {
-  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const ctx = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    hasTouch: false,
+  })
   const page = await ctx.newPage()
   await login(page)
+  await waitForRealData(page)
+  await waitForImages(page)
 
-  // Above the fold: masthead + shortlist
-  await shot(page, 'phase4-desktop-masthead.png')
+  await shot(page, 'phase4-final-1280-masthead.png')
+
+  // Move mouse away from cards, then capture resting state
+  await page.mouse.move(640, 450)
+  await page.waitForTimeout(200)
+  await shot(page, 'phase4-final-1280-resting.png')
 
   // Hover first shortlist card
   const card = page.locator('.shortlist-card').first()
   if (await card.count()) {
     await card.hover()
-    await page.waitForTimeout(200)
-    await shot(page, 'phase4-desktop-shortlist-hover.png')
+    await page.waitForTimeout(300)
+    await shot(page, 'phase4-final-1280-shortlist-hover.png')
   }
 
-  // Scroll to Continue watching section
+  // Scroll to continue watching
   await page.evaluate(() => {
     const el = document.querySelector('.continue-rail')
     if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' })
   })
-  await page.waitForTimeout(300)
-  await shot(page, 'phase4-desktop-continue.png')
+  await waitForImages(page)
+  await shot(page, 'phase4-final-1280-continue.png')
 
   await ctx.close()
 }
 
-// 375px mobile (iPhone SE emulation — coarse pointer)
+// 375px iPhone SE (coarse pointer)
 {
   const ctx = await browser.newContext({
     ...devices['iPhone SE'],
@@ -61,26 +92,27 @@ const browser = await chromium.launch()
   })
   const page = await ctx.newPage()
   await login(page)
-  await shot(page, 'phase4-mobile-masthead.png')
+  await waitForRealData(page)
+  await waitForImages(page)
 
-  // Scroll to shortlist card footer to see action button (always visible on coarse)
+  await shot(page, 'phase4-final-375-masthead.png')
+
   await page.evaluate(() => {
     const card = document.querySelector('.shortlist-card')
     if (card) card.scrollIntoView({ behavior: 'instant', block: 'start' })
   })
-  await page.waitForTimeout(200)
-  await shot(page, 'phase4-mobile-shortlist.png')
+  await waitForImages(page)
+  await shot(page, 'phase4-final-375-shortlist.png')
 
-  // Scroll to Continue watching
   await page.evaluate(() => {
     const el = document.querySelector('.continue-rail')
     if (el) el.scrollIntoView({ behavior: 'instant', block: 'center' })
   })
-  await page.waitForTimeout(300)
-  await shot(page, 'phase4-mobile-continue.png')
+  await waitForImages(page)
+  await shot(page, 'phase4-final-375-continue.png')
 
   await ctx.close()
 }
 
 await browser.close()
-console.log('Done — screenshots in docs/screenshots/')
+console.log('Done.')
