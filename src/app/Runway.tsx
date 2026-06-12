@@ -1592,10 +1592,11 @@ function App() {
               <h2 className="dashboard-section-header">Shortlist</h2>
               {shortlistItems.length > 0 ? (
                 <div className="shortlist-rail">
-                  {shortlistItems.map((entry) => (
+                  {shortlistItems.map((entry, index) => (
                     <ShortlistCard
                       key={entry.item.id}
                       entry={entry}
+                      cardIndex={index}
                       showDetail={entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined}
                       onMarkWatched={() => markWatched(entry.item, entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined)}
                     />
@@ -2669,10 +2670,12 @@ function App() {
 
 function ShortlistCard({
   entry,
+  cardIndex,
   showDetail,
   onMarkWatched,
 }: {
   entry: ShortlistEntry
+  cardIndex: number
   showDetail: TmdbShowDetail | undefined
   onMarkWatched: () => void
 }) {
@@ -2681,7 +2684,7 @@ function ShortlistCard({
     ? computeWatchProgress(item, showDetail)
     : 0
   return (
-    <article className="shortlist-card">
+    <article className="shortlist-card" style={{ '--card-index': cardIndex } as CSSProperties}>
       <div className="shortlist-card-poster">
         {item.posterPath ? (
           <Image
