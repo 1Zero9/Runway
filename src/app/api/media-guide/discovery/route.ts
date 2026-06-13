@@ -29,7 +29,7 @@ export async function GET() {
 
   const res = await fetch(
     `https://api.themoviedb.org/3/trending/all/week?api_key=${apiKey}&region=IE&language=en-IE`,
-    { next: { revalidate: 3600 } },
+    { next: { revalidate: 86400 } },
   )
 
   if (!res.ok) {
@@ -52,6 +52,6 @@ export async function GET() {
 
   return NextResponse.json(
     { trending },
-    { headers: { 'Cache-Control': 'private, max-age=3600' } },
+    { headers: { 'Cache-Control': 'private, max-age=86400' } },
   )
 }
