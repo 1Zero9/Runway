@@ -5,6 +5,11 @@
 - Update this changelog in the same commit as the version bump.
 - Use patch versions for UI polish and small fixes, minor versions for new user-facing features, and major versions only for breaking changes or large data model shifts.
 
+## 0.1.6 - UI Styling Foundation Stabilization
+- Fixed the global body typography baseline so Runway no longer falls back to browser serif defaults outside app wrappers.
+- Replaced self-referential font tokens with stable font stack fallbacks and added missing shared CSS token aliases.
+- Scoped generic button hover and active rules to known control primitives so unrelated buttons stop inheriting accidental interaction styling.
+
 ## 0.1.4 - TMDb Error Visibility
 - Added detailed TMDb server error messages to the Streaming and Cinema views so missing, invalid, or mis-scoped API keys are visible in production.
 

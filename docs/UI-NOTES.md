@@ -4,6 +4,15 @@ Read this at the start of every session before touching any CSS or component cod
 
 ---
 
+## v0.1.6 — Styling foundation stabilization (2026-06-13)
+
+- `body` now owns the global Runway typography baseline. Rendered check confirms `Inter` is applied at document level instead of falling back to browser serif defaults.
+- Font custom properties no longer define themselves recursively; stable fallback stacks live in `--font-ui-stack` and `--font-display-stack`.
+- Shared token aliases `--border` and `--radius-lg` were added so newer search/history overlay CSS resolves against the same token sheet.
+- Generic button hover/active effects are now scoped to known Runway control primitives. This stops unrelated buttons from inheriting accidental backgrounds and transforms.
+
+---
+
 ## RUNWAY-POP — Dense, colourful, alive (2026-06-12 → 2026-06-13)
 
 **Status: Phase A–E complete. Passes the new bar.**
@@ -372,7 +381,7 @@ All tables get `user_id` defaulting to 'steve' via `RUNWAY_USER_ID` constant.
 
 **What changed:**
 
-- **Topbar** — removed commit hash `<span class="build-id">` from the header. Build info now lives in Settings → App version row (`Runway v0.1.5 · build <hash>`).
+- **Topbar** — removed commit hash `<span class="build-id">` from the header. Build info now lives in Settings → App version row (`Runway v<appVersion> · build <hash>`).
 - **E00 bug** — extracted `formatEpisodeLabel(season, episode)` into `src/lib/episode-label.ts`. Both the episode tracker in the watch list and the UpNextRail now use this function. It clamps both season and episode to a minimum of 1, so `currentEpisode: 0` or `null` always renders as `S01 E01`, never `S01 E00`.
 - **Unit tests** — added **vitest** (`^4.1.8`) as a devDependency. Config at `vitest.config.ts`. Five tests covering null/undefined defaults, episode 0 clamp, padding, and season 0 clamp. Run with `npm test`.
 - **Channel management** — removed the full `.channel-panel` block from the Tonight tab. Replaced with a single "Edit channels" quiet link that routes to Settings. Full channel management (chip list, favourites/all toggle, reset Sky list) is now in Settings under the "Channels" section. Clicking a channel chip from Settings navigates back to Tonight with that channel filtered.

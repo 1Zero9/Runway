@@ -24,6 +24,7 @@
   --score-hi: #0B8A47;
   --score-mid: #E8830C;
   --score-lo: #98A0AB;
+  --border: var(--line);
 
   /* Shadows — layered ambient (light mode) */
   --shadow-sm: 0 1px 2px rgb(16 19 25 / 0.04), 0 4px 12px rgb(16 19 25 / 0.06);
@@ -32,11 +33,12 @@
   /* Radii */
   --radius-sm: 8px;
   --radius-md: 14px;
+  --radius-lg: 18px;
   --radius-poster: 10px;
 
   /* Fonts */
-  --font-display: var(--font-display, "Space Grotesk", ui-sans-serif, system-ui, sans-serif);
-  --font-ui: var(--font-ui, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  --font-display-stack: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-ui-stack: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
   /* Type scale (8 steps: 11/12/13/14/16/18/28/48) */
   --fs-xs: 11px;
@@ -78,6 +80,19 @@ html {
   scrollbar-width: thin;
 }
 
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui, var(--font-ui-stack));
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -115,7 +130,7 @@ p {
 .shared-list-page {
   min-height: 100svh;
   color: var(--ink);
-  font-family: var(--font-ui);
+  font-family: var(--font-ui, var(--font-ui-stack));
   font-size: var(--fs-lg);
   font-weight: 400;
   letter-spacing: 0;
@@ -273,18 +288,57 @@ select {
 /* ── Buttons ────────────────────────────────────────────────────────────── */
 
 button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
   cursor: pointer;
+  touch-action: manipulation;
   transition:
     color 160ms ease,
     border-color 160ms ease,
-    background 160ms ease;
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
-button:hover:not(:disabled) {
+.primary-button:hover:not(:disabled),
+.provider:hover:not(:disabled),
+.icon-button:hover:not(:disabled),
+.tab:hover:not(:disabled),
+.segmented-actions button:hover:not(:disabled),
+.field button:hover:not(:disabled),
+.media-card button:hover:not(:disabled),
+.next-strip button:hover:not(:disabled),
+.list-actions button:hover:not(:disabled),
+.mini-item button:hover:not(:disabled),
+.toggle-chip:hover:not(:disabled),
+.chip-star:hover:not(:disabled),
+.ep-catchup-btn:hover:not(:disabled),
+.library-filter-chip:hover:not(:disabled),
+.search-action-btn:hover:not(:disabled),
+.search-sentiment-btn:hover:not(:disabled),
+.search-esc-btn:hover:not(:disabled),
+.completion-action:hover:not(:disabled) {
   background: var(--surface-sunken);
 }
 
-button:active {
+.primary-button:active,
+.provider:active,
+.icon-button:active,
+.tab:active,
+.segmented-actions button:active,
+.media-card button:active,
+.next-strip button:active,
+.list-actions button:active,
+.mini-item button:active,
+.toggle-chip:active,
+.chip-star:active,
+.ep-catchup-btn:active,
+.library-filter-chip:active,
+.search-action-btn:active,
+.search-sentiment-btn:active,
+.search-esc-btn:active,
+.completion-action:active {
   transform: scale(0.96);
   transition: transform 60ms ease;
 }
