@@ -357,8 +357,8 @@ button:disabled {
 .topbar-wordmark {
   font-family: var(--font-display);
   font-size: var(--fs-xl);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   white-space: nowrap;
   color: var(--ink);
 }
@@ -987,16 +987,16 @@ button:disabled {
   .countdown-cards > *:nth-child(n+8) { animation-delay: 280ms; }
 }
 
-/* Watchlist poster grid — staggered fade-in */
+/* Watchlist tile rail — staggered fade-in */
 @media (prefers-reduced-motion: no-preference) {
-  .watchlist-card { animation: view-in 200ms ease-out both; }
-  .watchlist-grid > *:nth-child(2)  { animation-delay:  30ms; }
-  .watchlist-grid > *:nth-child(3)  { animation-delay:  60ms; }
-  .watchlist-grid > *:nth-child(4)  { animation-delay:  90ms; }
-  .watchlist-grid > *:nth-child(5)  { animation-delay: 120ms; }
-  .watchlist-grid > *:nth-child(6)  { animation-delay: 150ms; }
-  .watchlist-grid > *:nth-child(7)  { animation-delay: 180ms; }
-  .watchlist-grid > *:nth-child(n+8) { animation-delay: 210ms; }
+  .watchlist-tile-rail .tile { animation: view-in 200ms ease-out both; }
+  .watchlist-tile-rail > *:nth-child(2)  { animation-delay:  30ms; }
+  .watchlist-tile-rail > *:nth-child(3)  { animation-delay:  60ms; }
+  .watchlist-tile-rail > *:nth-child(4)  { animation-delay:  90ms; }
+  .watchlist-tile-rail > *:nth-child(5)  { animation-delay: 120ms; }
+  .watchlist-tile-rail > *:nth-child(6)  { animation-delay: 150ms; }
+  .watchlist-tile-rail > *:nth-child(7)  { animation-delay: 180ms; }
+  .watchlist-tile-rail > *:nth-child(n+8) { animation-delay: 210ms; }
 }
 
 /* Watch-item list — staggered fade-in */
@@ -2395,92 +2395,23 @@ button:disabled {
   color: var(--accent);
 }
 
-/* ── Watchlist poster grid ──────────────────────────────────────────────── */
+/* ── Watchlist tile rail ────────────────────────────────────────────────── */
 
-.watchlist-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: var(--space-2);
-}
-
-.watchlist-card {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--surface-sunken);
-  aspect-ratio: 2 / 3;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow 150ms ease, transform 150ms ease;
-}
-
-.watchlist-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.watchlist-card-poster {
-  position: absolute;
-  inset: 0;
+.watchlist-tile-rail {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-faint);
+  gap: 10px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding: 0 var(--space-5);
+  padding: 0 var(--space-5) var(--space-2);
+  margin: 0 calc(-1 * var(--space-5));
+  -webkit-overflow-scrolling: touch;
 }
 
-.watchlist-card-info {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  z-index: 1;
-  padding: var(--space-5) var(--space-2) var(--space-2);
-  background: linear-gradient(transparent, rgba(22, 24, 29, 0.80) 40%);
-}
+.watchlist-tile-rail::-webkit-scrollbar { display: none; }
 
-.watchlist-card-info span {
-  font-size: var(--fs-xs);
-  font-weight: 650;
-  color: #FFFFFF;
-  display: block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.watchlist-card-actions {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  gap: var(--space-1);
-  padding: var(--space-2);
-  background: rgba(22, 24, 29, 0.80);
-  opacity: 0;
-  transition: opacity 160ms ease;
-}
-
-.watchlist-card:hover .watchlist-card-actions,
-.watchlist-card:focus-within .watchlist-card-actions {
-  opacity: 1;
-}
-
-.watchlist-card-actions button {
-  min-height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  border: 1px solid rgba(255,255,255,0.20);
-  border-radius: var(--radius-sm);
-  background: rgba(255,255,255,0.12);
-  color: #FFFFFF;
-  font-size: var(--fs-xs);
-  font-weight: 650;
-  white-space: nowrap;
+.watchlist-tile-rail .tile {
+  flex: 0 0 164px;
 }
 
 /* ── Shared list page ───────────────────────────────────────────────────── */
@@ -2876,9 +2807,9 @@ button:disabled {
 .dashboard-greeting:not(.has-masthead) .greeting-date {
   font-family: var(--font-display);
   font-size: var(--fs-2xl);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   text-transform: none;
 }
 
@@ -2922,8 +2853,8 @@ button:disabled {
 .dashboard-section-header {
   font-family: var(--font-display);
   font-size: var(--fs-2xl);
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--ink);
   line-height: 1.1;
   padding-bottom: var(--space-3);
@@ -3114,23 +3045,7 @@ button:disabled {
 .shortlist-rail::-webkit-scrollbar { display: none; }
 
 .shortlist-tile {
-  flex: 0 0 min(288px, 78vw);
-}
-
-/* Shortlist footer: a bit more breathing room */
-.shortlist-tile .tile-body {
-  padding-top: var(--space-3);
-}
-
-.shortlist-tile .tile-title {
-  font-size: var(--fs-lg);
-  font-weight: 650;
-  white-space: normal;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.25;
+  flex: 0 0 164px;
 }
 
 .shortlist-tile .tile-reason,
@@ -3158,83 +3073,20 @@ button:disabled {
 
 .continue-rail::-webkit-scrollbar { display: none; }
 
-.continue-card {
-  position: relative;
-  flex: 0 0 min(256px, 76vw);
-  scroll-snap-align: start;
-  display: flex;
-  flex-direction: row;
-  gap: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-  overflow: hidden;
-  transition: box-shadow 180ms ease, transform 180ms ease;
+/* Continue watching tile — uses base .tile styles, adds caught-up fade */
+.continue-tile {
+  flex: 0 0 164px;
 }
 
-.continue-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.continue-card.caught-up {
+.continue-tile.caught-up {
   opacity: 0.55;
   pointer-events: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .continue-card.caught-up {
+  .continue-tile.caught-up {
     animation: caught-up-exit 300ms ease 2000ms both;
   }
-}
-
-.continue-card-poster {
-  flex: 0 0 56px;
-  height: 100%;
-  min-height: 84px;
-  background: var(--well);
-  overflow: hidden;
-}
-
-.continue-card-poster-fallback {
-  width: 100%;
-  height: 100%;
-  min-height: 84px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--ink-faint);
-  background: var(--well);
-}
-
-.continue-card-body {
-  flex: 1;
-  min-width: 0;
-  padding: 10px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.continue-card-title {
-  font-size: var(--fs-md);
-  font-weight: 650;
-  color: var(--ink);
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.continue-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-  overflow: hidden;
 }
 
 .continue-ep-label {
@@ -3252,60 +3104,6 @@ button:disabled {
   .continue-ep-label {
     animation: ep-advance 220ms ease;
   }
-}
-
-.continue-runtime {
-  font-size: var(--fs-xs);
-  color: var(--ink-faint);
-  font-feature-settings: "tnum";
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.continue-mark-btn {
-  margin-top: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 9px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  font-size: var(--fs-xs);
-  font-weight: 650;
-  color: var(--ink-soft);
-  cursor: pointer;
-  align-self: flex-start;
-  transition: background 120ms, border-color 120ms, color 120ms;
-}
-
-.continue-mark-btn:hover {
-  background: var(--surface-sunken);
-  color: var(--ink);
-  border-color: var(--line-strong);
-}
-
-.continue-caught-up {
-  margin-top: auto;
-  font-size: var(--fs-xs);
-  font-weight: 650;
-  color: var(--new);
-}
-
-.continue-progress-track {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: color-mix(in srgb, var(--brand) 18%, transparent);
-}
-
-.continue-progress-fill {
-  height: 100%;
-  background: var(--brand);
-  min-width: 2px;
-  transition: width 300ms ease;
 }
 
 /* Discovery rails */
@@ -4709,7 +4507,7 @@ kbd {
   font-size: var(--fs-3xl);
   color: var(--ink);
   margin-top: 2px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.1;
 }

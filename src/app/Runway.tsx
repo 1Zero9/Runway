@@ -3098,44 +3098,35 @@ function ContinueRail({
           item.type !== 'film' && item.type !== 'sport'
             ? formatEpisodeLabel(item.currentSeason, item.currentEpisode)
             : null
-        const avgRuntime = showDetail?.episodeRunTime?.length
-          ? Math.round(showDetail.episodeRunTime.reduce((a, b) => a + b, 0) / showDetail.episodeRunTime.length)
-          : null
-        const runtime = avgRuntime ? `${avgRuntime} min` : null
         return (
-          <div key={item.id} className={isCaughtUp ? 'continue-card caught-up' : 'continue-card'}>
-            <div className="continue-card-poster">
+          <article key={item.id} className={`tile continue-tile${isCaughtUp ? ' caught-up' : ''}`}>
+            <div className="tile-poster">
               {item.posterPath ? (
                 <Image
-                  src={`https://image.tmdb.org/t/p/w92${item.posterPath}`}
+                  src={`https://image.tmdb.org/t/p/w342${item.posterPath}`}
                   alt=""
-                  width={92}
-                  height={138}
+                  width={342}
+                  height={513}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   placeholder="blur"
                   blurDataURL={makePosterBlur(null)}
                 />
               ) : (
-                <div className="continue-card-poster-fallback">
-                  <span>{(item.title[0] ?? '?').toUpperCase()}</span>
+                <div className="tile-poster-fallback">
+                  <span className="poster-fallback-initial">{(item.title[0] ?? '?').toUpperCase()}</span>
                 </div>
               )}
-            </div>
-            <div className="continue-card-body">
-              <div className="continue-card-title">{item.title}</div>
-              <div className="continue-card-meta">
-                <ProviderBadge name={item.service} />
-                {epLabel && (
-                  <span key={epLabel} className="continue-ep-label">{epLabel}</span>
-                )}
-                {runtime && <span className="continue-runtime">{runtime}</span>}
-              </div>
+              {progress > 0 && !isCaughtUp && (
+                <div className="tile-progress-track">
+                  <div className="tile-progress-fill" style={{ width: `${Math.max(2, progress)}%` }} />
+                </div>
+              )}
               {isCaughtUp ? (
-                <span className="continue-caught-up">Caught up ✓</span>
+                <div className="tile-action">Caught up ✓</div>
               ) : (
                 <button
                   type="button"
-                  className="continue-mark-btn"
+                  className="tile-action"
                   onClick={() => onMarkWatched(item, showDetail)}
                 >
                   <Check size={11} />
@@ -3143,12 +3134,16 @@ function ContinueRail({
                 </button>
               )}
             </div>
-            {!isCaughtUp && progress > 0 && (
-              <div className="continue-progress-track">
-                <div className="continue-progress-fill" style={{ width: `${Math.max(2, progress)}%` }} />
+            <div className="tile-body">
+              <div className="tile-title">{item.title}</div>
+              <div className="tile-meta">
+                <div className="tile-meta-row">
+                  <ProviderBadge name={item.service} />
+                  {epLabel && <span key={epLabel} className="continue-ep-label">{epLabel}</span>}
+                </div>
               </div>
-            )}
-          </div>
+            </div>
+          </article>
         )
       })}
     </div>
@@ -3274,40 +3269,37 @@ function WatchlistGrid({
   onRemove: (id: string) => void
 }) {
   return (
-    <div className="watchlist-grid">
+    <div className="watchlist-tile-rail">
       {items.map((item) => (
-        <div key={item.id} className="watchlist-card">
-          <div className="watchlist-card-poster">
+        <article key={item.id} className="tile">
+          <div className="tile-poster">
             {item.posterPath ? (
               <Image
-                src={`https://image.tmdb.org/t/p/w185${item.posterPath}`}
+                src={`https://image.tmdb.org/t/p/w342${item.posterPath}`}
                 alt=""
-                width={185}
-                height={278}
+                width={342}
+                height={513}
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 placeholder="blur"
                 blurDataURL={makePosterBlur(null)}
               />
             ) : (
-              <div className="poster-fallback" style={{ width: '100%', height: '100%', background: 'var(--surface-sunken)' }}>
+              <div className="tile-poster-fallback">
                 <span className="poster-fallback-initial">{(item.title[0] ?? '?').toUpperCase()}</span>
               </div>
             )}
-          </div>
-          <div className="watchlist-card-info">
-            <span>{item.title}</span>
-          </div>
-          <div className="watchlist-card-actions">
-            <button type="button" onClick={() => onMarkWatched(item)}>
-              <Check size={12} />
+            <button type="button" className="tile-action" onClick={() => onMarkWatched(item)}>
+              <Check size={11} />
               {item.type === 'film' ? 'Watched' : 'Ep watched'}
             </button>
-            <button type="button" onClick={() => onRemove(item.id)}>
-              <Trash2 size={12} />
-              Remove
-            </button>
           </div>
-        </div>
+          <div className="tile-body">
+            <div className="tile-title">{item.title}</div>
+            <div className="tile-meta">
+              <ProviderBadge name={item.service} />
+            </div>
+          </div>
+        </article>
       ))}
     </div>
   )
