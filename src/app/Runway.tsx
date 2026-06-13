@@ -2259,13 +2259,13 @@ function App() {
             {([
               ['watching', 'Watching'],
               ['watchlisted', 'Watchlist'],
-              ['finished', 'Finished'],
+              ['history', 'History'],
               ['favourites', 'Favourites'],
               ['recommended', 'Recommended'],
               ['abandoned', 'Abandoned'],
             ] as [LibraryFilter, string][]).map(([value, label]) => {
               const count = libraryFilterCounts[value]
-              if (count === 0 && value !== 'watching' && value !== 'watchlisted' && value !== 'finished') return null
+              if (count === 0 && value !== 'watching' && value !== 'watchlisted' && value !== 'history') return null
               return (
                 <button
                   key={value}
@@ -2338,14 +2338,14 @@ function App() {
               {!calendarEvents.length && <p className="muted-copy">Track shows or load cinema releases to fill the calendar.</p>}
             </div>
           </div>
-          {libraryFilter === 'finished' && (
+          {libraryFilter === 'history' && (
             <HistoryGrid
               items={filteredLibraryItems}
               onReactivate={reactivateItem}
               onSentimentChange={(item, s) => void updateSentiment(item, s)}
             />
           )}
-          {libraryFilter !== 'finished' && <div className="watch-list">
+          {libraryFilter !== 'history' && <div className="watch-list">
             {watchGroups.map((group) => (
               <section className="watch-group" key={group.status}>
                 <div className="watch-group-heading">
