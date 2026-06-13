@@ -1,31 +1,6 @@
 /* ── Token sheet ─────────────────────────────────────────────────────────── */
 
 :root {
-  /* Palette — light, colorful base */
-  --bg: #f3f7fb;
-  --surface: #ffffff;
-  --surface-sunken: #eaf1f8;
-  --well: #e7eef7;
-  --line: #d3dfeb;
-  --line-strong: #b7c7d9;
-  --ink: #1e2430;
-  --ink-soft: #596576;
-  --ink-faint: #8a98aa;
-
-  /* Functional colour system — every colour means one thing */
-  --brand: #006fc9;
-  --accent: #006fc9;
-  --accent-rgb: 0, 111, 201;
-  --accent-soft: #e2f1ff;
-  --new: #12a6e8;
-  --soon: #f0b5a7;
-  --leaving: #e43d35;
-  --list: #2567d7;
-  --score-hi: #445b78;
-  --score-mid: #8b7a94;
-  --score-lo: #9caabd;
-  --border: var(--line);
-
   /* Specific Palette tokens */
   --palette-navy: #063f73;
   --palette-cobalt: #0076d6;
@@ -34,6 +9,31 @@
   --palette-slate: #5b5a78;
   --palette-blush: #e7c5bd;
   --palette-coral: #e43d35;
+
+  /* Palette — light, colorful base mapped from palette tokens */
+  --bg: #f3f7fb;
+  --surface: #ffffff;
+  --surface-sunken: color-mix(in srgb, var(--palette-mist) 20%, #ffffff);
+  --well: color-mix(in srgb, var(--palette-mist) 35%, #ffffff);
+  --line: rgba(6, 63, 115, 0.12);
+  --line-strong: rgba(6, 63, 115, 0.22);
+  --ink: var(--palette-navy);
+  --ink-soft: var(--palette-slate);
+  --ink-faint: color-mix(in srgb, var(--palette-slate) 60%, #ffffff);
+
+  /* Functional colour system — mapped from palette tokens */
+  --brand: var(--palette-cobalt);
+  --accent: var(--palette-cobalt);
+  --accent-rgb: 0, 118, 214;
+  --accent-soft: rgba(0, 118, 214, 0.08);
+  --new: var(--palette-sky);
+  --soon: var(--palette-blush);
+  --leaving: var(--palette-coral);
+  --list: var(--palette-cobalt);
+  --score-hi: var(--palette-navy);
+  --score-mid: var(--palette-slate);
+  --score-lo: var(--palette-mist);
+  --border: var(--line);
 
   /* Shadows — layered ambient (light mode) */
   --shadow-sm: 0 1px 2px rgb(16 19 25 / 0.04), 0 4px 12px rgb(16 19 25 / 0.06);
@@ -93,9 +93,9 @@ body {
   margin: 0;
   min-height: 100svh;
   background:
-    radial-gradient(at 0% 0%, rgba(231, 197, 189, 0.28) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(85, 166, 223, 0.18) 0px, transparent 50%),
-    radial-gradient(at 50% 100%, rgba(215, 226, 236, 0.35) 0px, transparent 50%),
+    radial-gradient(at 0% 0%, rgba(231, 197, 189, 0.35) 0%, transparent 60%),
+    radial-gradient(at 100% 0%, rgba(85, 166, 223, 0.22) 0%, transparent 60%),
+    radial-gradient(at 50% 100%, rgba(215, 226, 236, 0.40) 0%, transparent 60%),
     linear-gradient(180deg, #f7fafc 0%, #edf2f6 50%, #ffffff 100%);
   color: var(--ink);
   font-family: var(--font-ui, var(--font-ui-stack));
