@@ -3139,6 +3139,7 @@ function ContinueRail({
               <div className="tile-meta">
                 <div className="tile-meta-row">
                   <ProviderBadge name={item.service} />
+                  <ScoreChip avg={showDetail?.voteAverage} />
                   {epLabel && <span key={epLabel} className="continue-ep-label">{epLabel}</span>}
                 </div>
               </div>
