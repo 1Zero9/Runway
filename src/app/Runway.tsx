@@ -188,7 +188,7 @@ const defaultProviders: Provider[] = [
   { id: 0, label: 'Paramount+', match: ['Paramount Plus', 'Paramount+'], enabled: true },
 ]
 
-const appVersion = '0.1.6'
+const appVersion = '0.1.7'
 
 // Phase 3 (RUNWAY-RESET.md): strip to three modules until quality proven.
 // Re-admit each module in Phase 5 after screenshot evidence + prod-bar verdict.
@@ -2074,7 +2074,7 @@ function App() {
       )}
 
       {tab === 'runway' && (
-        <section className="view">
+        <section className="view runway-view">
           {/* Countdown stream */}
           {countdownGroups.map((group) => (
             <div key={group.label} className="countdown-group">
@@ -2251,7 +2251,7 @@ function App() {
       )}
 
       {tab === 'library' && (
-        <section className="view">
+        <section className="view library-view">
           {inProgressShows.length > 0 && (
             <UpNextRail items={inProgressShows} showDetailCache={showDetailCache} caughtUpIds={caughtUpIds} onMarkWatched={markWatched} />
           )}

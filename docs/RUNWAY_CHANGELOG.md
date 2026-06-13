@@ -5,6 +5,11 @@
 - Update this changelog in the same commit as the version bump.
 - Use patch versions for UI polish and small fixes, minor versions for new user-facing features, and major versions only for breaking changes or large data model shifts.
 
+## 0.1.7 - Visual Personality Pass
+- Added a richer light visual system with a sticky glass topbar, stronger Runway wordmark treatment, and darker cinematic dashboard masthead.
+- Gave poster rails, the Runway tab stage, countdowns, providers, filters, and discovery cards more depth, contrast, and motion without changing app data behavior.
+- Improved mobile visual hierarchy with compact topbar behavior and always-visible discovery actions.
+
 ## 0.1.6 - UI Styling Foundation Stabilization
 - Fixed the global body typography baseline so Runway no longer falls back to browser serif defaults outside app wrappers.
 - Replaced self-referential font tokens with stable font stack fallbacks and added missing shared CSS token aliases.

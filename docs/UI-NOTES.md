@@ -4,6 +4,15 @@ Read this at the start of every session before touching any CSS or component cod
 
 ---
 
+## v0.1.7 — Visual personality pass (2026-06-13)
+
+- The app now keeps the light direction but adds cinematic contrast: sticky glass topbar, red Runway brand mark, dark dashboard masthead, and stronger poster depth.
+- Dashboard shortlist sits inside the masthead moment so the first screen feels like a personal viewing surface rather than a plain list.
+- Runway gets its own dark stage behind the first working section; countdowns use a dark screening-band treatment; discovery filters and provider toggles are framed as working controls with more depth.
+- Discovery action buttons stay quiet until hover/focus on desktop and stay visible on mobile.
+
+---
+
 ## v0.1.6 — Styling foundation stabilization (2026-06-13)
 
 - `body` now owns the global Runway typography baseline. Rendered check confirms `Inter` is applied at document level instead of falling back to browser serif defaults.
