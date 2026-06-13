@@ -4,6 +4,14 @@ Read this at the start of every session before touching any CSS or component cod
 
 ---
 
+## v0.1.8 — Runway catalogue polish (2026-06-13)
+
+- Replaced the black Runway browsing slab with a warm light editorial surface. The screen now leans closer to catalogue/filter examples rather than a dark hero panel.
+- Normalized Runway poster card sizing with one shared `--runway-card-width` scale across watchlist, countdown, continue, discovery, and media-grid cards.
+- Provider chips now behave more like service filters: rounded, light, and selected via a red-tinted active state instead of black pills.
+
+---
+
 ## v0.1.7 — Visual personality pass (2026-06-13)
 
 - The app now keeps the light direction but adds cinematic contrast: sticky glass topbar, red Runway brand mark, dark dashboard masthead, and stronger poster depth.

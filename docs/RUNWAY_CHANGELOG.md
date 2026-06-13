@@ -5,6 +5,11 @@
 - Update this changelog in the same commit as the version bump.
 - Use patch versions for UI polish and small fixes, minor versions for new user-facing features, and major versions only for breaking changes or large data model shifts.
 
+## 0.1.8 - Runway Catalogue Polish
+- Replaced the heavy black Runway stage with a lighter editorial catalogue surface inspired by watch/discovery reference layouts.
+- Normalized Runway poster card sizing across watchlist, countdown, continue, and discovery views.
+- Refined provider chips and discovery controls so browsing feels closer to a service/filter catalogue than a dark hero panel.
+
 ## 0.1.7 - Visual Personality Pass
 - Added a richer light visual system with a sticky glass topbar, stronger Runway wordmark treatment, and darker cinematic dashboard masthead.
 - Gave poster rails, the Runway tab stage, countdowns, providers, filters, and discovery cards more depth, contrast, and motion without changing app data behavior.

@@ -5052,16 +5052,15 @@ body {
 }
 
 .tile {
-  flex-basis: 184px;
+  --runway-card-width: clamp(148px, 13vw, 184px);
+  flex-basis: var(--runway-card-width);
 }
 
-.shortlist-tile {
-  flex-basis: clamp(180px, 18vw, 230px);
-}
-
+.shortlist-tile,
 .continue-tile,
-.discovery-tile {
-  flex-basis: 170px;
+.discovery-tile,
+.watchlist-tile-rail .tile {
+  flex: 0 0 var(--runway-card-width);
 }
 
 .tile-poster {
@@ -5103,8 +5102,8 @@ body {
   padding: 28px clamp(14px, 3vw, 40px);
   border-top: 1px solid rgba(16, 19, 25, 0.07);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.58)),
-    linear-gradient(90deg, rgba(224, 52, 43, 0.07), transparent 30%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.72)),
+    linear-gradient(90deg, rgba(224, 52, 43, 0.045), transparent 32%);
 }
 
 .runway-view {
@@ -5118,12 +5117,13 @@ body {
   top: 0;
   left: calc(-1 * clamp(14px, 3vw, 40px));
   right: calc(-1 * clamp(14px, 3vw, 40px));
-  height: 460px;
+  height: 430px;
+  border: 1px solid rgba(224, 52, 43, 0.12);
   border-radius: 28px;
   background:
-    linear-gradient(110deg, rgba(16, 19, 25, 0.98), rgba(16, 19, 25, 0.86) 62%, rgba(224, 52, 43, 0.78)),
-    repeating-linear-gradient(112deg, rgba(255, 255, 255, 0.08) 0 1px, transparent 1px 60px);
-  box-shadow: 0 28px 70px rgba(16, 19, 25, 0.16);
+    linear-gradient(110deg, rgba(255, 255, 255, 0.96), rgba(253, 236, 233, 0.88) 48%, rgba(224, 52, 43, 0.12)),
+    repeating-linear-gradient(112deg, rgba(16, 19, 25, 0.045) 0 1px, transparent 1px 60px);
+  box-shadow: 0 22px 56px rgba(16, 19, 25, 0.10);
 }
 
 .runway-view > * {
@@ -5132,27 +5132,11 @@ body {
 }
 
 .runway-view > .view-section:first-of-type {
-  min-height: 460px;
+  min-height: 430px;
   padding-top: 34px;
   border-top: 0;
   background: transparent;
-  color: #ffffff;
-}
-
-.runway-view > .view-section:first-of-type .eyebrow,
-.runway-view > .view-section:first-of-type .section-heading h2,
-.runway-view > .view-section:first-of-type .tile-title,
-.runway-view > .view-section:first-of-type .tile-provider,
-.runway-view > .view-section:first-of-type .tile-context,
-.runway-view > .view-section:first-of-type .tile-reason {
-  color: #ffffff;
-}
-
-.runway-view > .view-section:first-of-type .eyebrow,
-.runway-view > .view-section:first-of-type .tile-provider,
-.runway-view > .view-section:first-of-type .tile-context,
-.runway-view > .view-section:first-of-type .tile-reason {
-  opacity: 0.72;
+  color: var(--ink);
 }
 
 .runway-view > .view-section:first-of-type .section-heading {
@@ -5160,28 +5144,33 @@ body {
 }
 
 .runway-view > .view-section:first-of-type .section-heading svg {
-  color: rgba(255, 255, 255, 0.84);
+  color: var(--accent);
 }
 
 .runway-view > .view-section:first-of-type .tile-poster {
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 18px 34px rgba(16, 19, 25, 0.14);
 }
 
 .countdown-group {
   border-top: 0;
-  background: #101319;
-  color: #ffffff;
+  border: 1px solid rgba(224, 52, 43, 0.10);
+  border-radius: 26px;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.96), rgba(252, 232, 229, 0.82)),
+    repeating-linear-gradient(112deg, rgba(16, 19, 25, 0.04) 0 1px, transparent 1px 54px);
+  color: var(--ink);
+  box-shadow: 0 18px 44px rgba(16, 19, 25, 0.08);
 }
 
 .countdown-group-label {
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--ink-faint);
 }
 
 .countdown-card {
-  width: 160px;
+  width: var(--runway-card-width, clamp(148px, 13vw, 184px));
   border: 0;
   background: transparent;
-  color: #ffffff;
+  color: var(--ink);
   box-shadow: none;
 }
 
@@ -5189,19 +5178,21 @@ body {
 .countdown-card-fallback {
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 20px 42px rgba(0, 0, 0, 0.34);
+  box-shadow: 0 18px 34px rgba(16, 19, 25, 0.16);
 }
 
 .countdown-chip {
-  color: rgba(255, 255, 255, 0.58);
+  color: var(--ink-faint);
 }
 
 .countdown-chip--urgent {
-  color: #ffffff;
+  color: var(--accent);
 }
 
 .media-grid {
-  gap: 22px 16px;
+  --poster-scale: 1;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(150px, calc(178px * var(--poster-scale)), 210px), 1fr));
+  gap: 22px 18px;
 }
 
 .media-card .tile-title,
@@ -5240,17 +5231,24 @@ body {
 }
 
 .provider-row {
-  margin: 12px 0 20px;
+  margin: 12px 0 22px;
+  gap: 10px;
 }
 
 .provider {
   border-radius: 999px;
+  min-height: 42px;
+  padding: 0 15px;
+  background: #ffffff;
+  border-color: var(--line-strong);
+  box-shadow: 0 8px 20px rgba(16, 19, 25, 0.05);
 }
 
 .provider.active {
-  background: #101319;
-  color: #ffffff;
-  box-shadow: 0 10px 24px rgba(16, 19, 25, 0.18);
+  background: var(--accent-soft);
+  border-color: rgba(var(--accent-rgb), 0.34);
+  color: var(--accent);
+  box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.12);
 }
 
 .suggestion-strip {
@@ -5312,8 +5310,8 @@ body {
 
   .runway-view::before,
   .runway-view > .view-section:first-of-type {
-    height: 390px;
-    min-height: 390px;
+    height: 370px;
+    min-height: 370px;
   }
 
   .media-actions {
