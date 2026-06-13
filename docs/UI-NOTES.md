@@ -4,7 +4,7 @@ Read this at the start of every session before touching any CSS or component cod
 
 ---
 
-## RUNWAY-POP — Dense, colourful, alive (2026-06-12)
+## RUNWAY-POP — Dense, colourful, alive (2026-06-12 → 2026-06-13)
 
 **Status: Phase A–E complete. Passes the new bar.**
 
@@ -22,12 +22,13 @@ Design pivot authorised by RUNWAY-POP.md. Restrained-editorial direction retired
 
 ### Phase B — The tile
 
-Replaced `ShortlistCard` (220–300px white card + info block) and `ContinueRail` (68px poster + horizontal body) with a unified naked-poster tile:
-- `.tile`: 164px desktop, 108px mobile, `aspect-ratio: 2/3`
+Replaced `ShortlistCard`, `ContinueRail` (68px poster + horizontal body), and `WatchlistGrid` (.watchlist-card grid) with a unified naked-poster tile:
+- `.tile`: 164px (`flex: 0 0 164px`), `aspect-ratio: 2/3`
 - `.tile-poster`: `border-radius: 8px`, `box-shadow: inset 0 0 0 1px var(--line)`, hover `scale(1.03)` + shadow-md
 - `.tile-action`: dark overlay button, `opacity: 0` → 1 on hover; always visible on `pointer: coarse`
 - `.tile-body`: title (Inter 14px semibold) + `.tile-meta` (provider + score chip + reason/context)
 - Reason text coloured by shortlist rule: `--leaving` red, `--new` green, `--soon` orange
+- Old `.watchlist-grid`/`.watchlist-card` CSS removed (~80 lines); replaced by `.watchlist-tile-rail` (same bleed rail pattern as shortlist/continue)
 - Hero backdrop (Controls Phase 5) retired: `false && heroBackdropPath` — flat white background
 
 ### Phase C — Scores
@@ -42,15 +43,16 @@ Replaced `ShortlistCard` (220–300px white card + info block) and `ContinueRail
 
 Two new rails below Continue watching:
 1. **New for you** — client-derived from `streaming` state: filter `first_air_date/release_date ≥ 30 days ago`, exclude library TMDB IDs, sort by recency desc, 12 tiles
-2. **Trending this week** — new GET `/api/media-guide/discovery`, fetches TMDB `/trending/all/week?region=IE`, `revalidate: 3600`, 14 results, library exclusion client-side
+2. **Trending this week** — new GET `/api/media-guide/discovery`, fetches TMDB `/trending/all/week?region=IE`, `revalidate: 86400` (daily), 14 results, library exclusion client-side
 
 `DiscoveryRail` component: naked tiles, score chips, Film/TV media-type badge. Degrades to absence on API failure.
 
 ### Phase E — Density audit
 
-- `.dashboard-greeting`: top padding 48px → 24px; desktop 64px → 32px
-- `.dashboard-section`: bottom padding 48px → 40px (uniform across mobile + desktop)
-- `.time-fit-bar`: bottom padding 20px → 12px
+- `.dashboard-greeting`: top padding `space-6`(24px) → `space-3`(12px) mobile; `space-7`(32px) → `space-4`(16px) desktop
+- `.greeting-masthead`: font-size `--fs-3xl` (36–48px) → `--fs-2xl` (22–28px) — masthead vertical footprint roughly halved
+- `.dashboard-section`: bottom padding remains 40px (uniform, was already correct)
+- `.discovery-rail`: added padding+margin bleed to match shortlist/continue rail pattern
 
 ### Screenshot evidence (2026-06-12, automated)
 
