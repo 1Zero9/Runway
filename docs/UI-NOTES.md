@@ -4,6 +4,14 @@ Read this at the start of every session before touching any CSS or component cod
 
 ---
 
+## v0.1.10 — palette and persistent action states (2026-06-13)
+
+- Palette direction now comes from the supplied references: deep navy, cobalt/sky blue, slate blue, misty blue, warm blush, and a small coral accent.
+- Discovery action buttons use persistent filled selected states: Track = blue, Seen = slate, Fav = coral/blush, Recommend = sky, Not for me = grey-blue.
+- The final CSS layer intentionally overrides the v0.1.9 plain reset so active buttons and selected cards do not collapse back to outline-only styling.
+
+---
+
 ## v0.1.9 — UI reset and visible adds (2026-06-13)
 
 - Added a final CSS reset layer that removes the black Runway stage, oversized catalogue panels, and mixed card sizing from the previous visual pass.

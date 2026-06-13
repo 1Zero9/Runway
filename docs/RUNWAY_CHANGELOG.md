@@ -5,6 +5,11 @@
 - Update this changelog in the same commit as the version bump.
 - Use patch versions for UI polish and small fixes, minor versions for new user-facing features, and major versions only for breaking changes or large data model shifts.
 
+## 0.1.10 - Palette and Persistent Action States
+- Applied the new blue, slate, blush, and coral palette across the Runway shell, filters, service badges, selected cards, and action controls.
+- Made discovery action buttons stay visibly selected with filled status-specific styles instead of falling back to outline-only feedback.
+- Added pressed-state semantics to Track, Seen, Fav, Recommend, and Not for me buttons.
+
 ## 0.1.9 - UI Reset and Visible Adds
 - Reset the Runway visual layer to a cleaner light personal-app layout with smaller consistent poster cards, simpler spacing, and no black browsing stage.
 - Made Track and Watchlist actions explicit: tracked items land in Watching, watchlisted items land in Watchlist, and the Library opens to the right filter after saving.

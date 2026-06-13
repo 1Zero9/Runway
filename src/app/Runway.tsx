@@ -188,7 +188,7 @@ const defaultProviders: Provider[] = [
   { id: 0, label: 'Paramount+', match: ['Paramount Plus', 'Paramount+'], enabled: true },
 ]
 
-const appVersion = '0.1.9'
+const appVersion = '0.1.10'
 
 // Phase 3 (RUNWAY-RESET.md): strip to three modules until quality proven.
 // Re-admit each module in Phase 5 after screenshot evidence + prod-bar verdict.
@@ -3486,12 +3486,18 @@ function MediaGrid({
               </div>
             </div>
             <div className="media-actions">
-              <button className={isTracked ? 'selected-action' : ''} type="button" onClick={() => onTrack(item)}>
+              <button
+                aria-pressed={isTracked}
+                className={isTracked ? 'selected-action selected-action-track' : ''}
+                type="button"
+                onClick={() => onTrack(item)}
+              >
                 <Plus size={14} />
                 Track
               </button>
               <button
-                className={itemStatuses.has('seen') ? 'selected-action' : ''}
+                aria-pressed={itemStatuses.has('seen')}
+                className={itemStatuses.has('seen') ? 'selected-action selected-action-seen' : ''}
                 type="button"
                 onClick={() => onAction(item, 'seen')}
               >
@@ -3499,7 +3505,8 @@ function MediaGrid({
                 Seen
               </button>
               <button
-                className={itemStatuses.has('favorite') ? 'selected-action' : ''}
+                aria-pressed={itemStatuses.has('favorite')}
+                className={itemStatuses.has('favorite') ? 'selected-action selected-action-favorite' : ''}
                 type="button"
                 onClick={() => onAction(item, 'favorite')}
               >
@@ -3507,7 +3514,8 @@ function MediaGrid({
                 Fav
               </button>
               <button
-                className={itemStatuses.has('recommend') ? 'selected-action' : ''}
+                aria-pressed={itemStatuses.has('recommend')}
+                className={itemStatuses.has('recommend') ? 'selected-action selected-action-recommend' : ''}
                 type="button"
                 onClick={() => onAction(item, 'recommend')}
               >
@@ -3515,7 +3523,8 @@ function MediaGrid({
                 Recommend
               </button>
               <button
-                className={itemStatuses.has('not_interested') ? 'selected-action' : ''}
+                aria-pressed={itemStatuses.has('not_interested')}
+                className={itemStatuses.has('not_interested') ? 'selected-action selected-action-not-interested' : ''}
                 type="button"
                 onClick={() => onAction(item, 'not_interested')}
               >
