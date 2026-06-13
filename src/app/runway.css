@@ -92,7 +92,11 @@ html {
 body {
   margin: 0;
   min-height: 100svh;
-  background: var(--bg);
+  background:
+    radial-gradient(at 0% 0%, rgba(231, 197, 189, 0.28) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(85, 166, 223, 0.18) 0px, transparent 50%),
+    radial-gradient(at 50% 100%, rgba(215, 226, 236, 0.35) 0px, transparent 50%),
+    linear-gradient(180deg, #f7fafc 0%, #edf2f6 50%, #ffffff 100%);
   color: var(--ink);
   font-family: var(--font-ui, var(--font-ui-stack));
   font-size: var(--fs-lg);
@@ -4935,11 +4939,7 @@ kbd {
 
 /* ── v0.1.7 Visual personality pass ─────────────────────────────────────── */
 
-body {
-  background:
-    linear-gradient(115deg, rgba(224, 52, 43, 0.08) 0 1px, transparent 1px 92px),
-    linear-gradient(180deg, #fafafa 0%, #f3f5f8 52%, #ffffff 100%);
-}
+/* body background overridden in base styles */
 
 
 
@@ -5486,12 +5486,7 @@ body {
 
 
 /* v0.1.9 UI reset: simple personal app layout */
-body {
-  background:
-    linear-gradient(90deg, rgba(0, 118, 214, 0.08) 0 12%, transparent 12% 24%, rgba(91, 90, 120, 0.07) 24% 36%, transparent 36% 48%, rgba(85, 166, 223, 0.07) 48% 60%, transparent 60%),
-    linear-gradient(180deg, #f6f9fc 0%, #edf4fa 46%, #ffffff 100%);
-  color: #1d2028;
-}
+/* body background reset */
 
 
 
@@ -6043,12 +6038,7 @@ body {
 }
 
 /* v0.1.11 colour surfaces: make the palette carry the page, not just accents */
-body {
-  background:
-    linear-gradient(90deg, rgba(6, 63, 115, 0.12) 0 7%, transparent 7% 14%, rgba(0, 118, 214, 0.12) 14% 21%, transparent 21% 28%, rgba(91, 90, 120, 0.10) 28% 35%, transparent 35% 42%, rgba(231, 197, 189, 0.22) 42% 49%, transparent 49%),
-    radial-gradient(circle at 14% 10%, rgba(240, 181, 167, 0.38), transparent 28%),
-    linear-gradient(180deg, #eaf3fb 0%, #f5f8fc 46%, #ffffff 100%);
-}
+/* body background using unified dynamic ambient gradient in base */
 
 
 
