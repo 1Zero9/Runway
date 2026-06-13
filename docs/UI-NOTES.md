@@ -4,6 +4,15 @@ Read this at the start of every session before touching any CSS or component cod
 
 ---
 
+## v0.1.9 — UI reset and visible adds (2026-06-13)
+
+- Added a final CSS reset layer that removes the black Runway stage, oversized catalogue panels, and mixed card sizing from the previous visual pass.
+- Current direction: light personal app shell, red accent, neutral chips, small poster thumbnails, and simple dividers instead of heavy panels.
+- Track/Watchlist saves now route to Library and select the correct filter so the saved item is visible immediately.
+- TMDb items now default to `relationship: tracking`, `status: watching`, and `logMode: active`; manual adds set relationship from status.
+
+---
+
 ## v0.1.8 — Runway catalogue polish (2026-06-13)
 
 - Replaced the black Runway browsing slab with a warm light editorial surface. The screen now leans closer to catalogue/filter examples rather than a dark hero panel.

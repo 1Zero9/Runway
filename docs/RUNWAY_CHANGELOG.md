@@ -5,6 +5,11 @@
 - Update this changelog in the same commit as the version bump.
 - Use patch versions for UI polish and small fixes, minor versions for new user-facing features, and major versions only for breaking changes or large data model shifts.
 
+## 0.1.9 - UI Reset and Visible Adds
+- Reset the Runway visual layer to a cleaner light personal-app layout with smaller consistent poster cards, simpler spacing, and no black browsing stage.
+- Made Track and Watchlist actions explicit: tracked items land in Watching, watchlisted items land in Watchlist, and the Library opens to the right filter after saving.
+- Added relationship/status defaults for TMDb and manual items so saved shows appear under the expected Library bucket.
+
 ## 0.1.8 - Runway Catalogue Polish
 - Replaced the heavy black Runway stage with a lighter editorial catalogue surface inspired by watch/discovery reference layouts.
 - Normalized Runway poster card sizing across watchlist, countdown, continue, and discovery views.

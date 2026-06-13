@@ -188,7 +188,7 @@ const defaultProviders: Provider[] = [
   { id: 0, label: 'Paramount+', match: ['Paramount Plus', 'Paramount+'], enabled: true },
 ]
 
-const appVersion = '0.1.8'
+const appVersion = '0.1.9'
 
 // Phase 3 (RUNWAY-RESET.md): strip to three modules until quality proven.
 // Re-admit each module in Phase 5 after screenshot evidence + prod-bar verdict.
@@ -1050,8 +1050,10 @@ function App() {
   }
 
   async function persistWatchingItem(item: WatchingItem, onSaved?: (saved: WatchingItem) => void) {
-    if (watching.some((row) => normalizeTitle(row.title) === normalizeTitle(item.title))) {
+    const existing = watching.find((row) => normalizeTitle(row.title) === normalizeTitle(item.title))
+    if (existing) {
       setToast(`${item.title} is already in My List`)
+      onSaved?.(existing)
       return
     }
 
@@ -1068,6 +1070,38 @@ function App() {
     setWatchlistSource('neon')
     showToast(`${item.title} added`, () => removeWatching(saved.id))
     onSaved?.(saved)
+  }
+
+  function showSavedItemInLibrary(filter: LibraryFilter, itemId?: string) {
+    setLibraryFilter(filter)
+    if (itemId) setDetailItemId(itemId)
+    setTab('library')
+  }
+
+  function trackAndOpenLibrary(item: WatchingItem) {
+    void persistWatchingItem(
+      {
+        ...item,
+        relationship: 'tracking',
+        status: item.status ?? 'watching',
+        done: false,
+        logMode: item.logMode ?? 'active',
+      },
+      (saved) => showSavedItemInLibrary('watching', saved.id),
+    )
+  }
+
+  function watchlistAndOpenLibrary(item: WatchingItem) {
+    void persistWatchingItem(
+      {
+        ...item,
+        relationship: 'watchlisted',
+        status: 'planned',
+        done: false,
+        logMode: item.logMode ?? 'active',
+      },
+      (saved) => showSavedItemInLibrary('watchlisted', saved.id),
+    )
   }
 
   async function addWatching(event: FormEvent<HTMLFormElement>) {
@@ -1088,6 +1122,11 @@ function App() {
       watchedCount: 0,
       status: String(data.get('status') || 'watching') as WatchStatus,
       done: String(data.get('status') || 'watching') === 'completed',
+      relationship: statusToRelationship(
+        String(data.get('status') || 'watching') as WatchStatus,
+        String(data.get('status') || 'watching') === 'completed',
+      ),
+      logMode: 'active',
     }
     await persistWatchingItem(item)
     event.currentTarget.reset()
@@ -1678,8 +1717,8 @@ function App() {
           recentSearches={recentSearches}
           trackedTitleSet={trackedTitleSet}
           onClose={() => setSearchOpen(false)}
-          onWatchlist={(item) => { persistWatchingItem({ ...mediaToWatchingItem(item), relationship: 'watchlisted', status: 'planned', done: false }); setSearchOpen(false) }}
-          onTrack={(item) => { persistWatchingItem(mediaToWatchingItem(item)); setSearchOpen(false) }}
+          onWatchlist={(item) => { watchlistAndOpenLibrary(mediaToWatchingItem(item)); setSearchOpen(false) }}
+          onTrack={(item) => { trackAndOpenLibrary(mediaToWatchingItem(item)); setSearchOpen(false) }}
           onArchive={(item, sentiment) => { void seenItFromSearch(item, sentiment) }}
           onAddRecent={addRecentSearch}
           onOpenLibraryItem={(id) => { setTab('library'); setDetailItemId(id); setSearchOpen(false) }}
@@ -1933,7 +1972,7 @@ function App() {
                         className={isTracked ? 'icon-button quiet suggestion-tracked' : 'icon-button quiet'}
                         aria-pressed={isTracked}
                         aria-label={isTracked ? `${item.title ?? item.name} is in your library` : `Track ${item.title ?? item.name}`}
-                        onClick={() => { if (!isTracked) persistWatchingItem(mediaToWatchingItem(item)) }}
+                        onClick={() => { if (!isTracked) trackAndOpenLibrary(mediaToWatchingItem(item)) }}
                       >
                         {isTracked ? <Check size={16} /> : <Plus size={16} />}
                       </button>
@@ -2039,8 +2078,8 @@ function App() {
                       <button
                         className="programme-action"
                         type="button"
-                        onClick={() =>
-                          persistWatchingItem({
+                        onClick={() => {
+                          const itemToSave: WatchingItem = {
                             id: crypto.randomUUID(),
                             title: item.show.name,
                             service: item.show.network?.name ?? item.show.webChannel?.name ?? 'TV',
@@ -2049,8 +2088,16 @@ function App() {
                             notes: item.name,
                             type: item.show.type === 'Movie' ? 'film' : 'show',
                             done: false,
-                          })
-                        }
+                            status: item.show.type === 'Movie' ? 'planned' : 'watching',
+                            relationship: item.show.type === 'Movie' ? 'watchlisted' : 'tracking',
+                            logMode: 'active',
+                          }
+                          if (item.show.type === 'Movie') {
+                            watchlistAndOpenLibrary(itemToSave)
+                          } else {
+                            trackAndOpenLibrary(itemToSave)
+                          }
+                        }}
                       >
                         {item.show.type === 'Movie' ? 'Watchlist' : 'Track'}
                       </button>
@@ -2170,7 +2217,7 @@ function App() {
                         type="button"
                         className="icon-button quiet"
                         aria-label={`Track ${item.title ?? item.name}`}
-                        onClick={() => persistWatchingItem(mediaToWatchingItem(item))}
+                        onClick={() => trackAndOpenLibrary(mediaToWatchingItem(item))}
                       >
                         <Plus size={16} />
                       </button>
@@ -2211,7 +2258,7 @@ function App() {
               genreMap={genreMap}
               items={visibleStreamingItems}
               onAction={addRecommendation}
-              onTrack={(item) => persistWatchingItem(mediaToWatchingItem(item))}
+              onTrack={(item) => trackAndOpenLibrary(mediaToWatchingItem(item))}
               posterScale={posterScale}
               statusByKey={discoveryStatusByKey}
               trackedTitleSet={trackedTitleSet}
@@ -2238,7 +2285,7 @@ function App() {
                 genreMap={genreMap}
                 items={visibleCinemaItems}
                 onAction={addRecommendation}
-                onTrack={(item) => persistWatchingItem(mediaToWatchingItem(item))}
+                onTrack={(item) => trackAndOpenLibrary(mediaToWatchingItem(item))}
                 posterScale={posterScale}
                 statusByKey={discoveryStatusByKey}
                 trackedTitleSet={trackedTitleSet}
@@ -4078,6 +4125,9 @@ function mediaToWatchingItem(item: TmdbItem): WatchingItem {
     cadence: 'Unknown',
     notes: item.overview.slice(0, 120),
     type: item.media_type === 'movie' ? 'film' : 'show',
+    status: 'watching',
+    relationship: 'tracking',
+    logMode: 'active',
     done: false,
     tmdbId: item.id,
     posterPath: item.poster_path ?? null,
