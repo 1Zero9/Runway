@@ -188,7 +188,7 @@ const defaultProviders: Provider[] = [
   { id: 0, label: 'Paramount+', match: ['Paramount Plus', 'Paramount+'], enabled: true },
 ]
 
-const appVersion = '0.1.10'
+const appVersion = '0.1.11'
 
 // Phase 3 (RUNWAY-RESET.md): strip to three modules until quality proven.
 // Re-admit each module in Phase 5 after screenshot evidence + prod-bar verdict.

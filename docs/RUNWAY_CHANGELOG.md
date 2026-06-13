@@ -5,6 +5,11 @@
 - Update this changelog in the same commit as the version bump.
 - Use patch versions for UI polish and small fixes, minor versions for new user-facing features, and major versions only for breaking changes or large data model shifts.
 
+## 0.1.11 - Colour Surface Pass
+- Fixed the Dashboard colour issue by replacing transparent hero and section overrides with visible blue, sky, slate, and blush surfaces.
+- Added tinted Dashboard shelves and stronger page background bands so colour is present in the layout, not only in active buttons.
+- Kept the existing action-state palette from v0.1.10.
+
 ## 0.1.10 - Palette and Persistent Action States
 - Applied the new blue, slate, blush, and coral palette across the Runway shell, filters, service badges, selected cards, and action controls.
 - Made discovery action buttons stay visibly selected with filled status-specific styles instead of falling back to outline-only feedback.

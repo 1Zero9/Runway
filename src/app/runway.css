@@ -6025,3 +6025,196 @@ body {
   background: rgba(85, 166, 223, 0.28);
   color: var(--ink);
 }
+
+/* v0.1.11 colour surfaces: make the palette carry the page, not just accents */
+body {
+  background:
+    linear-gradient(90deg, rgba(6, 63, 115, 0.12) 0 7%, transparent 7% 14%, rgba(0, 118, 214, 0.12) 14% 21%, transparent 21% 28%, rgba(91, 90, 120, 0.10) 28% 35%, transparent 35% 42%, rgba(231, 197, 189, 0.22) 42% 49%, transparent 49%),
+    radial-gradient(circle at 14% 10%, rgba(240, 181, 167, 0.38), transparent 28%),
+    linear-gradient(180deg, #eaf3fb 0%, #f5f8fc 46%, #ffffff 100%);
+}
+
+.app-shell {
+  max-width: 1360px;
+}
+
+.topbar {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.94), rgba(245, 249, 253, 0.90)),
+    linear-gradient(135deg, rgba(0, 118, 214, 0.16), rgba(231, 197, 189, 0.20));
+}
+
+.dashboard-hero-wrap {
+  overflow: hidden;
+  margin: 0 0 34px;
+  padding: clamp(22px, 3vw, 38px) clamp(20px, 4vw, 56px) clamp(24px, 3vw, 40px);
+  border: 1px solid rgba(6, 63, 115, 0.18);
+  border-radius: 28px;
+  background:
+    linear-gradient(110deg, rgba(6, 63, 115, 0.94) 0%, rgba(0, 118, 214, 0.86) 38%, rgba(85, 166, 223, 0.70) 62%, rgba(231, 197, 189, 0.82) 100%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.13) 0 1px, transparent 1px 78px);
+  color: #ffffff;
+  box-shadow: 0 30px 80px rgba(6, 63, 115, 0.24);
+}
+
+.dashboard-hero-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(240, 181, 167, 0.55), transparent 24%),
+    linear-gradient(90deg, transparent 0 58%, rgba(255, 255, 255, 0.14) 58% 59%, transparent 59% 68%, rgba(255, 255, 255, 0.10) 68% 69%, transparent 69%);
+  opacity: 0.75;
+}
+
+.dashboard-hero-wrap > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-hero-bg {
+  display: none;
+}
+
+.dashboard-hero-wrap .greeting-date,
+.dashboard-hero-wrap .greeting-masthead,
+.dashboard-hero-wrap .dashboard-section-header,
+.dashboard-hero-wrap .tile-title {
+  color: #ffffff;
+}
+
+.dashboard-hero-wrap .greeting-date,
+.dashboard-hero-wrap .tile-context,
+.dashboard-hero-wrap .tile-reason,
+.dashboard-hero-wrap .tile-provider {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.dashboard-greeting,
+.time-fit-bar,
+.dashboard-hero-wrap .dashboard-section {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.dashboard-section {
+  margin: 0 0 34px;
+  padding: 22px clamp(18px, 3vw, 34px) 30px;
+  border: 1px solid rgba(6, 63, 115, 0.13);
+  border-radius: 24px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(232, 243, 252, 0.88)),
+    linear-gradient(90deg, rgba(0, 118, 214, 0.08), rgba(231, 197, 189, 0.14));
+  box-shadow: 0 18px 44px rgba(6, 63, 115, 0.10);
+}
+
+.dashboard-hero-wrap .dashboard-section {
+  margin: 0;
+  padding-top: 8px;
+  padding-bottom: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dashboard-section-header {
+  color: var(--palette-navy);
+}
+
+.dashboard-hero-wrap .dashboard-section-header {
+  color: #ffffff;
+}
+
+.time-fit-chip {
+  border-color: rgba(255, 255, 255, 0.46);
+  background: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(8px);
+}
+
+.time-fit-chip:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+
+.time-fit-chip.active,
+.dashboard-hero-wrap .time-fit-chip.active {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: var(--palette-navy);
+  box-shadow: 0 14px 32px rgba(6, 63, 115, 0.20);
+}
+
+.shortlist-rail,
+.continue-rail,
+.discovery-rail,
+.countdown-rail {
+  margin-left: calc(-1 * clamp(12px, 2vw, 22px));
+  margin-right: calc(-1 * clamp(12px, 2vw, 22px));
+  padding-left: clamp(12px, 2vw, 22px);
+  padding-right: clamp(12px, 2vw, 22px);
+}
+
+.dashboard-hero-wrap .shortlist-rail {
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.tile-poster,
+.countdown-card img,
+.countdown-card-fallback {
+  box-shadow: 0 14px 30px rgba(6, 63, 115, 0.18);
+}
+
+.dashboard-hero-wrap .tile-poster {
+  box-shadow: 0 16px 34px rgba(2, 24, 44, 0.30);
+}
+
+.dashboard-hero-wrap .tile-provider.provider-badge {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--palette-navy);
+}
+
+.dashboard-hero-wrap .chip-score-hi,
+.dashboard-hero-wrap .chip-score-mid,
+.dashboard-hero-wrap .chip-score-lo {
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--palette-slate);
+}
+
+.view-section,
+.countdown-group,
+.home-section,
+.discovery-filters,
+.provider-row,
+.library-filter-bar,
+.tool-row {
+  border-color: rgba(6, 63, 115, 0.14);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.90), rgba(234, 243, 251, 0.82)),
+    linear-gradient(90deg, rgba(0, 118, 214, 0.07), rgba(231, 197, 189, 0.13));
+  box-shadow: 0 14px 36px rgba(6, 63, 115, 0.08);
+}
+
+.view-section {
+  padding: 24px clamp(16px, 3vw, 32px);
+  border-radius: 24px;
+}
+
+@media (max-width: 720px) {
+  .dashboard-hero-wrap {
+    padding: 22px 14px 24px;
+    border-radius: 22px;
+  }
+
+  .dashboard-section,
+  .view-section {
+    padding: 18px 12px 22px;
+    border-radius: 18px;
+  }
+}

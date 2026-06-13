@@ -4,6 +4,14 @@ Read this at the start of every session before touching any CSS or component cod
 
 ---
 
+## v0.1.11 — colour surface pass (2026-06-13)
+
+- Root cause: v0.1.9 still forced `.dashboard-hero-wrap` to `background: transparent`, `border: 0`, and `box-shadow: none`, so v0.1.10 colour only appeared as trim.
+- Added a final colour-surface layer: Dashboard hero now uses a visible navy/cobalt/sky/blush gradient; normal Dashboard sections use tinted panels instead of white/transparent blocks.
+- Background now uses stronger palette bands and warm radial tint so the page no longer reads as plain white.
+
+---
+
 ## v0.1.10 — palette and persistent action states (2026-06-13)
 
 - Palette direction now comes from the supplied references: deep navy, cobalt/sky blue, slate blue, misty blue, warm blush, and a small coral accent.
