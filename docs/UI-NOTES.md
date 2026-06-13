@@ -69,6 +69,43 @@ Two new rails below Continue watching:
 
 ---
 
+## RUNWAY-HISTORY — 30 Years In (2026-06-13)
+
+**Status: Phases A–E complete.**
+
+### Phase A — Data model
+- `shows.log_mode`: `active | archive` column on `media_watchlist`
+- `shows.archive_completed_at`: nullable timestamp (no episode rows fabricated)
+- `shows.sentiment`: `loved | liked | not_for_me`, nullable with `sentiment_at`
+- `shows.watched_era`: decade chips (90s, 00s, 10s, 20s)
+- Taste profile derivation: `/api/media-guide/taste` returns weighted anchors (loved=3, fav+2, liked=1) and provider/era weights
+
+### Phase B — Rapid logger
+- Search overlay (`Cmd+K` / `/`) has `▶ Watching · ✓ Seen it · + Watchlist` quick actions on each TMDB result
+- Tapping **Seen it** expands inline sentiment row: 😍 Loved · 👍 Liked · 😐 Not for me · → (skip)
+- Session counter in overlay header; input stays focused after each log for rapid looping
+- Keyboard: `T` = Watching, `S` = Seen it (expands row), `1/2/3` = sentiment, `W` = Watchlist
+
+### Phase C — The Wall
+- `/history` page — dense tap-to-tick poster grid, 6–8 per row
+- Curated TMDB sections (90s/00s/10s TV, crime, sci-fi, comedy, films) via `/api/media-guide/curated-wall`
+- Tap = Seen (✓ green overlay), tap again = Loved (♥ red overlay), long-press/right-click = Not for me (✕)
+- Momentum bar; full undo stack; session counter
+
+### Phase D — Better story (taste engine)
+- START_FRESH reason lines enriched: "Because you loved {topAnchor.title} · {service}"
+- not_for_me items suppressed from START_FRESH in `buildShortlist()`
+- Taste profile in Settings: loved/liked anchors list + not_for_me suppressions with remove buttons
+- "Log shows you've seen to build your profile" empty state linking to /history
+
+### Phase E — Library, grown up
+- Library filter tabs: **Watching · Watchlist · History · Favourites** (+ Recommended/Abandoned when non-zero)
+- History tab uses `history` filter value: `logMode === 'archive' || rel === 'finished'`
+- HistoryGrid: sentiment glyph + era, sorted loved→liked→unsentimented→not_for_me, year range header ("42 titles · 90s–20s")
+- HistoryGrid entry expand: inline sentiment chips + "▶ Rewatch" reactivation
+
+---
+
 ## STYLE-RULES visual constitution audit (2026-06-12)
 
 **Status: complete — all violations fixed, screenshots confirm**
