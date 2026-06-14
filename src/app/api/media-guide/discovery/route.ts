@@ -14,6 +14,22 @@ type TmdbItem = {
   first_air_date?: string
 }
 
+type TmdbProvider = {
+  provider_name: string
+}
+
+type WatchProviderResponse = {
+  results?: {
+    IE?: {
+      flatrate?: TmdbProvider[]
+      free?: TmdbProvider[]
+      ads?: TmdbProvider[]
+      rent?: TmdbProvider[]
+      buy?: TmdbProvider[]
+    }
+  }
+}
+
 export async function GET() {
   if (!(await hasMediaGuideSession())) {
     return NextResponse.json(
@@ -40,18 +56,50 @@ export async function GET() {
   }
 
   const data = (await res.json()) as { results: TmdbItem[] }
-  const trending = data.results.slice(0, 14).map((item) => ({
-    id: item.id,
-    title: item.title ?? item.name ?? '',
-    media_type: item.media_type,
-    poster_path: item.poster_path,
-    vote_average: item.vote_average,
-    release_date: item.release_date,
-    first_air_date: item.first_air_date,
-  }))
+  const baseTrending = data.results
+    .filter((item) => item.media_type === 'movie' || item.media_type === 'tv')
+    .slice(0, 14)
+
+  const trending = await Promise.all(
+    baseTrending.map(async (item) => {
+      const mediaType = item.media_type ?? (item.name ? 'tv' : 'movie')
+      const provider = await fetchIrelandProvider(apiKey, mediaType, item.id)
+      return {
+        id: item.id,
+        title: item.title ?? item.name ?? '',
+        media_type: mediaType,
+        overview: item.overview ?? '',
+        poster_path: item.poster_path,
+        vote_average: item.vote_average,
+        release_date: item.release_date,
+        first_air_date: item.first_air_date,
+        provider,
+      }
+    }),
+  )
 
   return NextResponse.json(
     { trending },
     { headers: { 'Cache-Control': 'private, max-age=86400' } },
   )
+}
+
+async function fetchIrelandProvider(apiKey: string, mediaType: 'movie' | 'tv', id: number) {
+  try {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/${mediaType}/${id}/watch/providers?api_key=${apiKey}`,
+      { next: { revalidate: 86400 } },
+    )
+    if (!res.ok) return ''
+
+    const data = (await res.json()) as WatchProviderResponse
+    const ie = data.results?.IE
+    if (!ie) return ''
+
+    const candidates = [...(ie.flatrate ?? []), ...(ie.free ?? []), ...(ie.ads ?? []), ...(ie.rent ?? []), ...(ie.buy ?? [])]
+    const names = Array.from(new Set(candidates.map((provider) => provider.provider_name).filter(Boolean)))
+    return names.slice(0, 2).join(' / ')
+  } catch {
+    return ''
+  }
 }

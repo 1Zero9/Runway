@@ -566,10 +566,35 @@ function App() {
       .slice(0, 12)
   }, [streaming, thirtyDaysAgo, libraryTmdbIds])
 
-  const trendingForYou = useMemo(
-    () => trending.filter((item) => !libraryTmdbIds.has(item.id)).slice(0, 12),
-    [trending, libraryTmdbIds],
+  const enabledProviderLabels = useMemo(
+    () => providers.filter((provider) => provider.enabled).flatMap((provider) => [provider.label, ...provider.match]),
+    [providers],
   )
+
+  const trendingForYou = useMemo(() => {
+    const matchesEnabledProvider = (item: TmdbItem) => {
+      if (!item.provider) return false
+      const providerText = item.provider.toLowerCase()
+      return enabledProviderLabels.some((label) => providerText.includes(label.toLowerCase()))
+    }
+    const isActionable = (item: TmdbItem) =>
+      !libraryTmdbIds.has(item.id) &&
+      !(discoveryStatusByKey.get(getTmdbItemKey(item)) ?? new Set<RecommendationItem['status']>()).has('not_interested')
+
+    const globalWithProviders = trending
+      .filter((item) => item.provider)
+      .filter(isActionable)
+      .sort((a, b) => Number(matchesEnabledProvider(b)) - Number(matchesEnabledProvider(a)))
+
+    const seen = new Set(globalWithProviders.map(getTmdbItemKey))
+    const providerBackfill = streaming
+      .filter((item) => item.provider)
+      .filter(isActionable)
+      .filter((item) => !seen.has(getTmdbItemKey(item)))
+      .slice(0, 12)
+
+    return [...globalWithProviders, ...providerBackfill].slice(0, 12)
+  }, [discoveryStatusByKey, enabledProviderLabels, libraryTmdbIds, streaming, trending])
 
   const topItemTmdbId = useMemo(() => {
     const shortlistTop = shortlistItems[0]?.item
@@ -1887,7 +1912,20 @@ function App() {
           {newForYou.length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">New for you</h2>
-              <DiscoveryRail items={newForYou} />
+              <DiscoveryRail
+                items={newForYou}
+                onAction={addRecommendation}
+                onWatchlist={(item) => {
+                  const libraryItem = mediaToWatchingItem(item)
+                  if ((item.media_type ?? (item.name ? 'tv' : 'movie')) === 'movie') {
+                    watchlistAndOpenLibrary(libraryItem)
+                  } else {
+                    trackAndOpenLibrary(libraryItem)
+                  }
+                }}
+                statusByKey={discoveryStatusByKey}
+                trackedTitleSet={trackedTitleSet}
+              />
             </div>
           )}
 
@@ -1916,8 +1954,21 @@ function App() {
 
           {trendingForYou.length > 0 && (
             <div className="dashboard-section">
-              <h2 className="dashboard-section-header">Trending this week</h2>
-              <DiscoveryRail items={trendingForYou} />
+              <h2 className="dashboard-section-header">On your services</h2>
+              <DiscoveryRail
+                items={trendingForYou}
+                onAction={addRecommendation}
+                onWatchlist={(item) => {
+                  const libraryItem = mediaToWatchingItem(item)
+                  if ((item.media_type ?? (item.name ? 'tv' : 'movie')) === 'movie') {
+                    watchlistAndOpenLibrary(libraryItem)
+                  } else {
+                    trackAndOpenLibrary(libraryItem)
+                  }
+                }}
+                statusByKey={discoveryStatusByKey}
+                trackedTitleSet={trackedTitleSet}
+              />
             </div>
           )}
 
@@ -3198,11 +3249,29 @@ function ContinueRail({
   )
 }
 
-function DiscoveryRail({ items }: { items: TmdbItem[] }) {
+function DiscoveryRail({
+  items,
+  onAction,
+  onWatchlist,
+  statusByKey,
+  trackedTitleSet,
+}: {
+  items: TmdbItem[]
+  onAction: (item: TmdbItem, status: RecommendationItem['status']) => void
+  onWatchlist: (item: TmdbItem) => void
+  statusByKey: Map<string, Set<RecommendationItem['status']>>
+  trackedTitleSet: Set<string>
+}) {
   return (
     <div className="discovery-rail">
       {items.map((item) => {
+        const key = getTmdbItemKey(item)
+        const itemStatuses = statusByKey.get(key) ?? new Set<RecommendationItem['status']>()
         const title = item.title ?? item.name ?? ''
+        const mediaType = item.media_type ?? (item.name ? 'tv' : 'movie')
+        const isTracked = trackedTitleSet.has(normalizeTitle(title))
+        const providerLabel = item.provider || 'Provider TBC'
+        const addLabel = mediaType === 'movie' ? 'Watchlist' : 'Track'
         return (
           <div key={`${item.media_type}-${item.id}`} className="tile discovery-tile">
             <div className="tile-poster">
@@ -3219,16 +3288,53 @@ function DiscoveryRail({ items }: { items: TmdbItem[] }) {
                   <span className="poster-fallback-initial">{(title[0] ?? '?').toUpperCase()}</span>
                 </div>
               )}
+              {isTracked && <span className="chip chip-list tile-status-chip">In library</span>}
             </div>
             <div className="tile-body">
               <div className="tile-title">{title}</div>
               <div className="tile-meta">
                 <div className="tile-meta-row">
-                  {item.media_type && (
-                    <span className="tile-provider">{item.media_type === 'movie' ? 'Film' : 'TV'}</span>
-                  )}
+                  <ProviderBadge name={providerLabel} />
                   <ScoreChip avg={item.vote_average} />
                 </div>
+              </div>
+              <div className="dashboard-discovery-actions">
+                <button
+                  type="button"
+                  aria-pressed={isTracked}
+                  className={isTracked ? 'selected-action selected-action-track' : ''}
+                  onClick={() => { if (!isTracked) onWatchlist(item) }}
+                >
+                  {isTracked ? <Check size={13} /> : <ListPlus size={13} />}
+                  {isTracked ? 'Saved' : addLabel}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={itemStatuses.has('favorite')}
+                  className={itemStatuses.has('favorite') ? 'selected-action selected-action-favorite' : ''}
+                  onClick={() => { if (!itemStatuses.has('favorite')) onAction(item, 'favorite') }}
+                >
+                  <Heart size={13} />
+                  Keep
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={itemStatuses.has('seen')}
+                  className={itemStatuses.has('seen') ? 'selected-action selected-action-seen' : ''}
+                  onClick={() => { if (!itemStatuses.has('seen')) onAction(item, 'seen') }}
+                >
+                  <Eye size={13} />
+                  Seen
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={itemStatuses.has('not_interested')}
+                  className={itemStatuses.has('not_interested') ? 'selected-action selected-action-not-interested' : ''}
+                  onClick={() => { if (!itemStatuses.has('not_interested')) onAction(item, 'not_interested') }}
+                >
+                  <ThumbsDown size={13} />
+                  Ignore
+                </button>
               </div>
             </div>
           </div>
@@ -4132,7 +4238,7 @@ function mediaToWatchingItem(item: TmdbItem): WatchingItem {
     service: item.provider ?? 'Streaming',
     nextEpisode: item.release_date ?? item.first_air_date ?? new Date().toISOString().slice(0, 10),
     cadence: 'Unknown',
-    notes: item.overview.slice(0, 120),
+    notes: (item.overview ?? '').slice(0, 120),
     type: item.media_type === 'movie' ? 'film' : 'show',
     status: 'watching',
     relationship: 'tracking',
