@@ -57,7 +57,7 @@ import {
 import type { Relationship } from '@/lib/title-state'
 import './runway.css'
 
-type Tab = 'tonight' | 'runway' | 'library' | 'settings' | 'guide'
+type Tab = 'tonight' | 'library' | 'settings' | 'guide'
 type TimeFit = 'any' | '30min' | '1hour' | 'film'
 type ShortlistEntry = { item: WatchingItem; rule: ShortlistRule; reason: string; action: string }
 type TasteAnchor = { title: string; weight: number; sentiment: string }
@@ -1700,9 +1700,6 @@ function App() {
           setTab('tonight')
           break
         case '2':
-          setTab('runway')
-          break
-        case '3':
           setTab('library')
           break
       }
@@ -1774,8 +1771,7 @@ function App() {
           <h1 className="topbar-wordmark">Runway</h1>
         </div>
         <nav className="tabs" aria-label="Guide views">
-          <TabButton active={tab === 'tonight'} icon={<LayoutDashboard size={18} />} label="Dashboard" onClick={() => setTab('tonight')} />
-          <TabButton active={tab === 'runway'} icon={<Sparkles size={18} />} label="Runway" onClick={() => setTab('runway')} />
+          <TabButton active={tab === 'tonight'} icon={<Sparkles size={18} />} label="Runway" onClick={() => setTab('tonight')} />
           <TabButton active={tab === 'library'} icon={<Star size={18} />} label="Library" onClick={() => setTab('library')} />
         </nav>
         <button
@@ -1802,10 +1798,8 @@ function App() {
       {tab === 'tonight' && (
         <section className="view dashboard">
           <div className={heroLoaded ? 'dashboard-hero-wrap has-backdrop' : 'dashboard-hero-wrap'}>
-
             {heroBackdropPath && (
               <>
-                {/* Hidden preload image — fires onLoad, never rendered visibly */}
                 <Image
                   key={heroBackdropPath}
                   src={`https://image.tmdb.org/t/p/w1280${heroBackdropPath}`}
@@ -1816,7 +1810,6 @@ function App() {
                   style={{ position: 'absolute', opacity: 0, width: 0, height: 0, pointerEvents: 'none' }}
                   onLoad={() => setHeroLoaded(true)}
                 />
-                {/* Visible ambient backdrop — only mounts after load confirmed */}
                 {heroLoaded && (
                   <div className="dashboard-hero-bg" aria-hidden>
                     <Image
@@ -1831,66 +1824,23 @@ function App() {
                 )}
               </>
             )}
-            {/* Greeting */}
             <div className={mastheadLine ? 'dashboard-greeting has-masthead' : 'dashboard-greeting'}>
               <p className="greeting-date">{formatGreeting(now)}</p>
               {mastheadLine && <h2 className="greeting-masthead">{mastheadLine}</h2>}
             </div>
+          </div>
 
-            {/* Time-fit chips */}
-            <div className="time-fit-bar" role="group" aria-label="How much time do you have?">
-              {(['any', '30min', '1hour', 'film'] as TimeFit[]).map((fit) => (
-                <button
-                  key={fit}
-                  className={timeFit === fit ? 'time-fit-chip active' : 'time-fit-chip'}
-                  type="button"
-                  onClick={() => setTimeFit(fit)}
-                >
-                  {fit === 'any' ? 'Anything' : fit === '30min' ? '30 min' : fit === '1hour' ? '1 hour' : 'Film night'}
-                </button>
-              ))}
+          {watching.length === 0 && (
+            <div className="dashboard-section">
+              <EmptyState
+                title="Track your first show"
+                detail="Use the search bar above (⌘K) to find something you're watching."
+              />
             </div>
-
-            {/* Shortlist — absent when library populated but no candidates qualify */}
-            {watching.length === 0 ? (
-              <div className="dashboard-section">
-                <div className="onboarding-card">
-                  <MonitorPlay size={28} />
-                  <h3>Track your first show</h3>
-                  <p>Search for something you&apos;re watching and Runway will surface it here.</p>
-                  <form
-                    className="onboarding-search"
-                    onSubmit={(e) => {
-                      e.preventDefault()
-                      const val = (e.currentTarget.elements.namedItem('q') as HTMLInputElement).value.trim()
-                      if (val) { setDiscoveryQuery(val); setTab('runway') }
-                    }}
-                  >
-                    <input name="q" placeholder="Search shows or films…" autoComplete="off" />
-                    <button type="submit">Search</button>
-                  </form>
-                </div>
-              </div>
-            ) : shortlistItems.length > 0 ? (
-              <div className="dashboard-section">
-                <h2 className="dashboard-section-header">Shortlist</h2>
-                <div className="shortlist-rail">
-                  {shortlistItems.map((entry, index) => (
-                    <ShortlistCard
-                      key={entry.item.id}
-                      entry={entry}
-                      cardIndex={index}
-                      showDetail={entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined}
-                      onMarkWatched={() => markWatched(entry.item, entry.item.tmdbId ? showDetailCache[entry.item.tmdbId] : undefined)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div> {/* end dashboard-hero-wrap */}
+          )}
 
           {/* Continue watching */}
-          {inProgressShows.length > 0 && watching.length > 0 && (
+          {inProgressShows.length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">Continue watching</h2>
               <ContinueRail
@@ -1902,7 +1852,7 @@ function App() {
             </div>
           )}
 
-          {/* Reconciliation strip — single title, 7+ day lapse, directly under Continue watching */}
+          {/* Reconciliation strip */}
           {DASHBOARD_MODULES.reconciliation && reconItems.length > 0 && (
             <ReconStrip
               item={reconItems[0]}
@@ -1911,50 +1861,7 @@ function App() {
             />
           )}
 
-          {/* Discovery modules: New for you → Coming up → Trending → On TV tonight → Worth a look */}
-          {newForYou.length > 0 && (
-            <div className="dashboard-section">
-              <h2 className="dashboard-section-header">New for you</h2>
-              <DiscoveryRail
-                items={newForYou}
-                onAction={addRecommendation}
-                onWatchlist={(item) => {
-                  const libraryItem = mediaToWatchingItem(item)
-                  if ((item.media_type ?? (item.name ? 'tv' : 'movie')) === 'movie') {
-                    watchlistAndOpenLibrary(libraryItem)
-                  } else {
-                    trackAndOpenLibrary(libraryItem)
-                  }
-                }}
-                statusByKey={discoveryStatusByKey}
-                trackedTitleSet={trackedTitleSet}
-              />
-            </div>
-          )}
-
-          {DASHBOARD_MODULES.comingUp && countdownGroups.length > 0 && (
-            <div className="dashboard-section">
-              <h2 className="dashboard-section-header">Coming up</h2>
-              {countdownGroups.map((group) => (
-                <div key={group.label} className="countdown-group">
-                  <p className="countdown-group-label">{group.label}</p>
-                  <div className="countdown-rail">
-                    {group.items.map((item) => (
-                      <CountdownCard
-                        key={item.id}
-                        chip={item.chip}
-                        days={item.days}
-                        dominantColour={item.dominantColour}
-                        posterPath={item.posterPath}
-                        title={item.title}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
+          {/* On your services — the lead value rail */}
           {trendingForYou.length > 0 && (
             <div className="dashboard-section">
               <h2 className="dashboard-section-header">On your services</h2>
@@ -1975,65 +1882,15 @@ function App() {
             </div>
           )}
 
-          {/* On TV tonight — absent when no tracked shows match */}
-          {DASHBOARD_MODULES.onTvTonight && tvTonightTracked.length > 0 && (
+          {/* Watchlist poster grid */}
+          {activeWatchingItems.length > 0 && (
             <div className="dashboard-section">
-              <h2 className="dashboard-section-header">On TV tonight</h2>
-              <div className="tv-tonight-list">
-                {tvTonightTracked.map((item) => {
-                  const timeStatus = getProgrammeStatus(item, now.getTime())
-                  return (
-                    <div key={item.id} className="tv-tonight-row">
-                      <span className="tv-tonight-time">{item.airtime || formatTime(item.airstamp)}</span>
-                      <span className="tv-tonight-channel">{item.show.network?.name ?? item.show.webChannel?.name ?? ''}</span>
-                      <span className="tv-tonight-title">{item.show.name}</span>
-                      <div className="tv-tonight-chips">
-                        {timeStatus === 'on-now' && <span className="status-chip chip-on-now">On now</span>}
-                        {timeStatus === 'next' && <span className="status-chip chip-next">Next</span>}
-                        <span className="status-chip chip-tracked">Tracked</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Worth a look — artwork-complete only, capped at 6 */}
-          {DASHBOARD_MODULES.worthALook && suggestions.filter((s) => s.poster_path).length > 0 && (
-            <div className="dashboard-section">
-              <h2 className="dashboard-section-header">Worth a look</h2>
-              <div className="suggestion-strip">
-                {suggestions.filter((s) => s.poster_path).slice(0, 6).map((item) => {
-                  const isTracked = libraryTmdbIds.has(item.id)
-                  return (
-                    <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
-                      <Image
-                        src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
-                        alt=""
-                        width={44}
-                        height={64}
-                        style={{ width: '44px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block', flexShrink: 0 }}
-                        placeholder="blur"
-                        blurDataURL={makePosterBlur(null)}
-                      />
-                      <div className="suggestion-info">
-                        <strong>{item.title ?? item.name}</strong>
-                        <span>{item.provider}</span>
-                      </div>
-                      <button
-                        type="button"
-                        className={isTracked ? 'icon-button quiet suggestion-tracked' : 'icon-button quiet'}
-                        aria-pressed={isTracked}
-                        aria-label={isTracked ? `${item.title ?? item.name} is in your library` : `Track ${item.title ?? item.name}`}
-                        onClick={() => { if (!isTracked) trackAndOpenLibrary(mediaToWatchingItem(item)) }}
-                      >
-                        {isTracked ? <Check size={16} /> : <Plus size={16} />}
-                      </button>
-                    </article>
-                  )
-                })}
-              </div>
+              <h2 className="dashboard-section-header">Watchlist</h2>
+              <WatchlistGrid
+                items={activeWatchingItems}
+                onMarkWatched={markWatched}
+                onRemove={removeWatching}
+              />
             </div>
           )}
         </section>
@@ -2169,183 +2026,6 @@ function App() {
                     : 'The Sky Ireland XMLTV feed may not have programmes for this date yet.'
                 }
               />
-            )}
-          </div>
-        </section>
-      )}
-
-      {tab === 'runway' && (
-        <section className="view runway-view">
-          {/* Countdown stream */}
-          {countdownGroups.map((group) => (
-            <div key={group.label} className="countdown-group">
-              <p className="countdown-group-label">{group.label}</p>
-              <div className="countdown-cards">
-                {group.items.map((item) => (
-                  <CountdownCard
-                    key={item.id}
-                    chip={item.chip}
-                    days={item.days}
-                    dominantColour={item.dominantColour}
-                    posterPath={item.posterPath}
-                    title={item.title}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-          {countdownGroups.length === 0 && !tmdbLoading && (
-            <EmptyState title="Nothing upcoming" detail="Add shows to My List or load cinema releases to build the countdown." />
-          )}
-
-          {/* Watchlist poster grid */}
-          {activeWatchingItems.length > 0 && (
-            <div className="view-section">
-              <div className="section-heading compact-heading">
-                <div>
-                  <p className="eyebrow">In progress</p>
-                  <h2>Watching</h2>
-                </div>
-                <Star size={19} />
-              </div>
-              <WatchlistGrid
-                items={activeWatchingItems}
-                onMarkWatched={markWatched}
-                onRemove={removeWatching}
-              />
-            </div>
-          )}
-
-          {/* Discover — streaming + cinema browse */}
-          <div className="view-section">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Netflix, Prime, Apple TV+, Paramount+, Sky / NOW</p>
-                <h2>Streaming in Ireland</h2>
-                {tmdbRefreshedAt && <span className="refresh-note">Updated {formatTime(tmdbRefreshedAt)}</span>}
-                {tmdbError && <span className="refresh-note error-note">{tmdbError}</span>}
-              </div>
-              <button
-                className={
-                  tmdbLoading || refreshPulse
-                    ? 'icon-button quiet refresh-button refreshing'
-                    : 'icon-button quiet refresh-button'
-                }
-                type="button"
-                disabled={tmdbLoading}
-                aria-label="Refresh streaming sources"
-                onClick={refreshSources}
-              >
-                <RefreshCw className={tmdbLoading || refreshPulse ? 'spin' : ''} size={18} />
-              </button>
-            </div>
-            {suggestions.length > 0 && (
-              <div className="home-section">
-                <p className="home-section-label">
-                  <Sparkles size={14} />
-                  Suggested for you
-                </p>
-                <div className="suggestion-strip">
-                  {suggestions.slice(0, 6).map((item) => (
-                    <article key={`${item.media_type}-${item.id}`} className="suggestion-card">
-                      {item.poster_path ? (
-                        <Image
-                          src={`https://image.tmdb.org/t/p/w185${item.poster_path}`}
-                          alt=""
-                          width={44}
-                          height={64}
-                          style={{ width: '44px', height: '64px', objectFit: 'cover', borderRadius: '6px', display: 'block' }}
-                          placeholder="blur"
-                          blurDataURL={makePosterBlur(null)}
-                        />
-                      ) : (
-                        <div className="poster-fallback">
-                          <span className="poster-fallback-initial">{((item.title ?? item.name ?? '?')[0]).toUpperCase()}</span>
-                        </div>
-                      )}
-                      <div className="suggestion-info">
-                        <strong>{item.title ?? item.name}</strong>
-                        <span>{item.provider}</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="icon-button quiet"
-                        aria-label={`Track ${item.title ?? item.name}`}
-                        onClick={() => trackAndOpenLibrary(mediaToWatchingItem(item))}
-                      >
-                        <Plus size={16} />
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            )}
-            <DiscoveryFilters
-              discoveryGenreId={discoveryGenreId}
-              discoveryMediaType={discoveryMediaType}
-              discoveryQuery={discoveryQuery}
-              discoveryStatusFilter={discoveryStatusFilter}
-              genreOptions={genreOptions}
-              onGenreChange={setDiscoveryGenreId}
-              onMediaTypeChange={setDiscoveryMediaType}
-              onPosterScaleChange={setPosterScale}
-              onQueryChange={setDiscoveryQuery}
-              onStatusFilterChange={setDiscoveryStatusFilter}
-              posterScale={posterScale}
-              showMediaType
-            />
-            <div className="provider-row">
-              {providers.map((provider) => (
-                <button
-                  className={provider.enabled ? 'provider active' : 'provider'}
-                  key={provider.label}
-                  type="button"
-                  onClick={() => toggleProvider(provider.label)}
-                >
-                  <Filter size={15} />
-                  {provider.label}
-                </button>
-              ))}
-            </div>
-            <MediaGrid
-              dominantColourByKey={dominantColourByKey}
-              genreMap={genreMap}
-              items={visibleStreamingItems}
-              onAction={addRecommendation}
-              onTrack={(item) => trackAndOpenLibrary(mediaToWatchingItem(item))}
-              posterScale={posterScale}
-              statusByKey={discoveryStatusByKey}
-              trackedTitleSet={trackedTitleSet}
-            />
-            {!tmdbLoading && visibleStreamingItems.length === 0 && (
-              <EmptyState
-                title="No titles for the selected services"
-                detail="Turn a provider back on, restore hidden categories, or tap refresh."
-              />
-            )}
-          </div>
-
-          <div className="view-section">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">Region IE</p>
-                <h2>Movie Releases</h2>
-              </div>
-              <Clapperboard size={19} />
-            </div>
-            {cinema.length ? (
-              <MediaGrid
-                dominantColourByKey={dominantColourByKey}
-                genreMap={genreMap}
-                items={visibleCinemaItems}
-                onAction={addRecommendation}
-                onTrack={(item) => trackAndOpenLibrary(mediaToWatchingItem(item))}
-                posterScale={posterScale}
-                statusByKey={discoveryStatusByKey}
-                trackedTitleSet={trackedTitleSet}
-              />
-            ) : (
-              <EmptyState title={tmdbError || 'TMDb releases will load once TMDB_API_KEY is available on the server'} />
             )}
           </div>
         </section>
