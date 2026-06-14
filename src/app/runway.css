@@ -1,34 +1,48 @@
 /* ── Token sheet ─────────────────────────────────────────────────────────── */
 
 :root {
-  /* Palette — pure white base */
-  --bg: #FFFFFF;
-  --surface: #FFFFFF;
-  --surface-sunken: #F2F4F7;
-  --well: #F2F4F7;
-  --line: #E6E9EE;
-  --line-strong: #C9CED6;
-  --ink: #101319;
-  --ink-soft: #525A66;
-  --ink-faint: #98A0AB;
+  /* Palette — blue swatch */
+  --palette-navy:       #242860;
+  --palette-cobalt:     #1952B5;
+  --palette-cornflower: #4475C2;
+  --palette-periwinkle: #8EA2D4;
+  --palette-slate:      #514E6C;
+  --palette-teal:       #2D4F6B;
+  --palette-mist:       #97B0BF;
+  --palette-silver:     #C0CAD5;
+  --palette-sky:        #698ABF;
+  --palette-steel:      #7E8FA2;
 
-  /* Functional colour system — every colour means one thing */
-  --brand: #E0342B;
-  --accent: #E0342B;
-  --accent-rgb: 224, 52, 43;
-  --accent-soft: #FBEAE8;
-  --new: #0B8A47;
-  --soon: #E8830C;
-  --leaving: #C2362B;
-  --list: #1D5FD6;
-  --score-hi: #0B8A47;
-  --score-mid: #E8830C;
-  --score-lo: #98A0AB;
+  /* Surfaces */
+  --bg:             #EFF2FA;
+  --surface:        #FFFFFF;
+  --surface-sunken: #E4EAF5;
+  --well:           #D8E1F0;
+  --line:           rgba(36, 40, 96, 0.14);
+  --line-strong:    rgba(36, 40, 96, 0.26);
+
+  /* Ink */
+  --ink:       #242860;
+  --ink-soft:  #514E6C;
+  --ink-faint: #7E8FA2;
+
+  /* Brand & interactive */
+  --brand:       #1952B5;
+  --accent:      #1952B5;
+  --accent-rgb:  25, 82, 181;
+  --accent-soft: rgba(25, 82, 181, 0.10);
+  --new:         #4475C2;
+  --soon:        #2D4F6B;
+  --leaving:     #514E6C;
+  --list:        #1952B5;
+  --score-hi:    #1952B5;
+  --score-mid:   #514E6C;
+  --score-lo:    #97B0BF;
   --border: var(--line);
 
-  /* Shadows — layered ambient (light mode) */
-  --shadow-sm: 0 1px 2px rgb(16 19 25 / 0.04), 0 4px 12px rgb(16 19 25 / 0.06);
-  --shadow-md: 0 2px 4px rgb(16 19 25 / 0.06), 0 8px 24px rgb(16 19 25 / 0.10);
+  /* Shadows — blue-tinted */
+  --shadow-sm: 0 1px 2px rgb(36 40 96 / 0.05), 0 4px 12px rgb(36 40 96 / 0.09);
+  --shadow-md: 0 2px 4px rgb(36 40 96 / 0.07), 0 8px 24px rgb(36 40 96 / 0.13);
 
   /* Radii */
   --radius-sm: 8px;
@@ -199,7 +213,7 @@ p {
   display: grid;
   place-items: center;
   border-radius: var(--space-4);
-  background: linear-gradient(135deg, var(--accent), #962a20 64%, var(--bg));
+  background: linear-gradient(135deg, var(--palette-cobalt), var(--palette-navy) 64%, var(--palette-teal));
   color: var(--surface);
 }
 
