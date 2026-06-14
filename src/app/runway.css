@@ -2973,6 +2973,13 @@ button:disabled {
   justify-content: center;
 }
 
+.tile-poster-fallback .poster-fallback-initial {
+  font-family: var(--font-display-stack);
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+
 /* Progress bar — branded brand red at absolute bottom of poster */
 .tile-progress-track {
   position: absolute;
@@ -4730,9 +4737,9 @@ kbd {
 }
 .wall-section-tab:hover { background: var(--border); }
 .wall-section-tab.active {
-  background: var(--ink);
-  color: var(--bg);
-  border-color: var(--ink);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: transparent;
 }
 
 /* Poster grid */

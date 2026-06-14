@@ -555,6 +555,8 @@ function App() {
     if (!streaming.length) return []
     return streaming
       .filter((item) => {
+        if (!isVisibleDiscoveryItem(item, hiddenGenres)) return false
+        if ((discoveryStatusByKey.get(getTmdbItemKey(item)) ?? new Set<RecommendationItem['status']>()).has('not_interested')) return false
         const date = item.first_air_date ?? item.release_date ?? ''
         return date >= thirtyDaysAgo && !libraryTmdbIds.has(item.id)
       })
@@ -564,7 +566,7 @@ function App() {
         return db > da ? 1 : -1
       })
       .slice(0, 12)
-  }, [streaming, thirtyDaysAgo, libraryTmdbIds])
+  }, [streaming, thirtyDaysAgo, libraryTmdbIds, discoveryStatusByKey, hiddenGenres])
 
   const enabledProviderLabels = useMemo(
     () => providers.filter((provider) => provider.enabled).flatMap((provider) => [provider.label, ...provider.match]),
@@ -578,6 +580,7 @@ function App() {
       return enabledProviderLabels.some((label) => providerText.includes(label.toLowerCase()))
     }
     const isActionable = (item: TmdbItem) =>
+      isVisibleDiscoveryItem(item, hiddenGenres) &&
       !libraryTmdbIds.has(item.id) &&
       !(discoveryStatusByKey.get(getTmdbItemKey(item)) ?? new Set<RecommendationItem['status']>()).has('not_interested')
 
@@ -594,7 +597,7 @@ function App() {
       .slice(0, 12)
 
     return [...globalWithProviders, ...providerBackfill].slice(0, 12)
-  }, [discoveryStatusByKey, enabledProviderLabels, libraryTmdbIds, streaming, trending])
+  }, [discoveryStatusByKey, enabledProviderLabels, hiddenGenres, libraryTmdbIds, streaming, trending])
 
   const topItemTmdbId = useMemo(() => {
     const shortlistTop = shortlistItems[0]?.item
