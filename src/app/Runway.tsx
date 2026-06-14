@@ -3265,9 +3265,11 @@ function DiscoveryRail({
   statusByKey: Map<string, Set<RecommendationItem['status']>>
   trackedTitleSet: Set<string>
 }) {
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set())
+  const visibleItems = items.filter((item) => !hiddenKeys.has(getTmdbItemKey(item)))
   return (
     <div className="discovery-rail">
-      {items.map((item) => {
+      {visibleItems.map((item) => {
         const key = getTmdbItemKey(item)
         const itemStatuses = statusByKey.get(key) ?? new Set<RecommendationItem['status']>()
         const title = item.title ?? item.name ?? ''
@@ -3306,7 +3308,12 @@ function DiscoveryRail({
                   type="button"
                   aria-pressed={isTracked}
                   className={isTracked ? 'selected-action selected-action-track' : ''}
-                  onClick={() => { if (!isTracked) onWatchlist(item) }}
+                  onClick={() => {
+                    if (!isTracked) {
+                      setHiddenKeys((prev) => new Set([...prev, key]))
+                      onWatchlist(item)
+                    }
+                  }}
                 >
                   {isTracked ? <Check size={13} /> : <ListPlus size={13} />}
                   {isTracked ? 'Saved' : addLabel}
@@ -3333,7 +3340,12 @@ function DiscoveryRail({
                   type="button"
                   aria-pressed={itemStatuses.has('not_interested')}
                   className={itemStatuses.has('not_interested') ? 'selected-action selected-action-not-interested' : ''}
-                  onClick={() => { if (!itemStatuses.has('not_interested')) onAction(item, 'not_interested') }}
+                  onClick={() => {
+                    if (!itemStatuses.has('not_interested')) {
+                      setHiddenKeys((prev) => new Set([...prev, key]))
+                      onAction(item, 'not_interested')
+                    }
+                  }}
                 >
                   <ThumbsDown size={13} />
                   Ignore
